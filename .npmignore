@@ -4,5 +4,4 @@ bower_components
 vendor/*.min.js
 test/*.bundle.js*
 sauce_connect.log
-coverage
-.DS_Store
+release

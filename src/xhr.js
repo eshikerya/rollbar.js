@@ -14,7 +14,7 @@ function ConnectionError(message) {
   this.stack = (new Error()).stack;
 }
 
-ConnectionError.prototype = Object.create(Error.prototype);
+ConnectionError.prototype = Util.objectCreate(Error.prototype);
 ConnectionError.prototype.constructor = ConnectionError;
 
 var XHR = {
@@ -74,7 +74,7 @@ var XHR = {
                   if (request.status == 403) {
                     // likely caused by using a server access token, display console message to let
                     // user know
-                    console.error('[Rollbar]:' + jsonResponse.message);
+                    Util.consoleError('[Rollbar]:' + jsonResponse.message);
                   }
                   // return valid http status codes
                   callback(new Error(String(request.status)));

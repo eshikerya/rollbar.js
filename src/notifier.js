@@ -22,6 +22,7 @@ var RollbarJSON = null;
 function setupJSON(JSON) {
   RollbarJSON = JSON;
   xhr.setupJSON(JSON);
+  Util.setupJSON(JSON);
 }
 
 function _wrapNotifierFn(fn, ctx) {
@@ -30,7 +31,7 @@ function _wrapNotifierFn(fn, ctx) {
     try {
       return fn.apply(self, arguments);
     } catch (e) {
-      console.error('[Rollbar]:', e);
+      Util.consoleError('[Rollbar]:', e);
     }
   };
 }
@@ -470,7 +471,7 @@ NotifierPrototype._urlIsWhitelisted = function(payload){
     }
   } catch (e) {
     this.configure({hostWhiteList: null});
-    console.error("[Rollbar]: Error while reading your configuration's hostWhiteList option. Removing custom hostWhiteList.", e);
+    Util.consoleError("[Rollbar]: Error while reading your configuration's hostWhiteList option. Removing custom hostWhiteList.", e);
     return true;
   }
 
@@ -518,7 +519,7 @@ NotifierPrototype._messageIsIgnored = function(payload){
   }
   catch(e) {
     this.configure({ignoredMessages: null});
-    console.error("[Rollbar]: Error while reading your configuration's ignoredMessages option. Removing custom ignoredMessages.");
+    Util.consoleError("[Rollbar]: Error while reading your configuration's ignoredMessages option. Removing custom ignoredMessages.");
   }
 
   return messageIsIgnored;
@@ -562,7 +563,7 @@ NotifierPrototype._enqueuePayload = function(payload, isUncaught, callerArgs, ca
   } catch (e) {
     // Disable the custom checkIgnore and report errors in the checkIgnore function
     this.configure({checkIgnore: null});
-    console.error('[Rollbar]: Error while calling custom checkIgnore() function. Removing custom checkIgnore().', e);
+    Util.consoleError('[Rollbar]: Error while calling custom checkIgnore() function. Removing custom checkIgnore().', e);
   }
 
   if (!this._urlIsWhitelisted(payload)) {
@@ -577,12 +578,10 @@ NotifierPrototype._enqueuePayload = function(payload, isUncaught, callerArgs, ca
     if (payload.data && payload.data.body && payload.data.body.trace) {
       var trace = payload.data.body.trace;
       var exceptionMessage = trace.exception.message;
-      console.error('[Rollbar]: ', exceptionMessage);
+      Util.consoleError('[Rollbar]: ', exceptionMessage);
     }
 
-    // FIXME: Some browsers do not output objects as json to the console, and
-    // instead write [object Object], so let's write the message first to ensure that is logged.
-    console.info('[Rollbar]: ', payloadToSend);
+    Util.consoleInfo('[Rollbar]: ', payloadToSend);
   }
 
   if (Util.isType(this.options.logFunction, 'function')) {
@@ -595,12 +594,13 @@ NotifierPrototype._enqueuePayload = function(payload, isUncaught, callerArgs, ca
     }
   } catch (e) {
     this.configure({transform: null});
-    console.error('[Rollbar]: Error while calling custom transform() function. Removing custom transform().', e);
+    Util.consoleError('[Rollbar]: Error while calling custom transform() function. Removing custom transform().', e);
   }
 
   if (this.options.enabled) {
     directlyEnqueuePayload(payloadToSend);
   }
+
 };
 
 function directlyEnqueuePayload(payloadToSend) {
@@ -645,6 +645,8 @@ NotifierPrototype._internalCheckIgnore = function(isUncaught, callerArgs, payloa
  * - callback: Function to call once the item is reported to Rollbar
  * - isUncaught: True if this error originated from an uncaught exception handler
  * - ignoreRateLimit: True if this item should be allowed despite rate limit checks
+ *
+ * Returns an object with (at least) the "uuid" property set.
  */
 NotifierPrototype._log = function(level, message, err, custom, callback, isUncaught, ignoreRateLimit) {
   var stackInfo = null;
@@ -661,7 +663,7 @@ NotifierPrototype._log = function(level, message, err, custom, callback, isUncau
 
       this.lastError = err;
     } catch (e) {
-      console.error('[Rollbar]: Error while parsing the error object.', e);
+      Util.consoleError('[Rollbar]: Error while parsing the error object.', e);
       // err is not something we can parse so let's just send it along as a string
       message = err.message || err.description || message || String(err);
       err = null;
@@ -673,6 +675,12 @@ NotifierPrototype._log = function(level, message, err, custom, callback, isUncau
     payload.ignoreRateLimit = true;
   }
   this._enqueuePayload(payload, isUncaught ? true : false, [level, message, err, custom], callback);
+
+  // We're generating the UUID client-side, may as well return it so it can be
+  // used even before the payload has been sent to Rollbar.  #236
+  // I'm returning an object here, in case we eventually want to add other
+  // contextual information besides the uuid.
+  return {uuid: payload.data.uuid};
 };
 
 NotifierPrototype.log = _generateLogFn();
@@ -721,23 +729,20 @@ NotifierPrototype.uncaughtError = _wrapNotifierFn(function(message, url, lineNo,
 });
 
 NotifierPrototype.unhandledRejection = _wrapNotifierFn(function(reason, promise) {
-  if (reason == null) {
-    _topLevelNotifier._log(_topLevelNotifier.options.uncaughtErrorLevel, //level
-      'unhandled rejection was null or undefined!', // message
-      null, // err
-      {}, // custom
-      null,  // callback
-      false, // isUncaught
-      false); // ignoreRateLimit
-    return;
-  }
-
-  var message = reason.message || (reason ? String(reason) : 'unhandled rejection');
-
+  var message;
   // If the reason error was thrown within a wrap call, we'll extract the context given there.
   // If users want to provide their Promise implementation with knowledge of the rollbar
   // context they are created in, we'll search for that attribute, too.
-  var context = reason._rollbarContext || promise._rollbarContext || null;
+  var context;
+
+  if (reason) {
+    message = reason.message || String(reason);
+    context = reason._rollbarContext;
+  } else {
+    message = 'unhandled rejection was null or undefined!';
+  }
+
+  context = context || promise._rollbarContext || null;
 
   if (reason && Util.isType(reason, 'error')) {
     this._log(this.options.uncaughtErrorLevel, message, reason, context, null, true);
@@ -863,7 +868,7 @@ NotifierPrototype.wrap = function(f, context) {
 
 
 NotifierPrototype.loadFull = function() {
-  console.error('[Rollbar]: Unexpected Rollbar.loadFull() called on a Notifier instance');
+  Util.consoleError('[Rollbar]: Unexpected Rollbar.loadFull() called on a Notifier instance');
 };
 
 
