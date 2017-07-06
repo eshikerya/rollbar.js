@@ -4,6 +4,8 @@ var assert = require('assert');
 var util = require('util');
 var vows = require('vows');
 var t = require('../src/server/transforms');
+
+process.env.NODE_ENV = process.env.NODE_ENV || 'test-node-env';
 var rollbar = require('../src/server/rollbar');
 var _ = require('../src/utility');
 
@@ -39,7 +41,7 @@ vows.describe('transforms')
               'should have some defaults': function(err, item) {
                 assert.ifError(err);
                 var data = item.data;
-                assert.equal(data.environment, 'development');
+                assert.equal(data.environment, process.env.NODE_ENV);
                 assert.equal(data.framework, 'node-js');
                 assert.equal(data.language, 'javascript');
                 assert.ok(data.server);
@@ -84,7 +86,9 @@ vows.describe('transforms')
         'with values': {
           topic: function() {
             return _.extend(true, {}, rollbar.defaultOptions, {
-              environment: 'opt-prod',
+              payload: {
+                environment: 'payload-prod',
+              },
               framework: 'opt-node',
               host: 'opt-host',
               branch: 'opt-master'
@@ -109,7 +113,7 @@ vows.describe('transforms')
               'should have data from options and defaults': function(err, item) {
                 assert.ifError(err);
                 var data = item.data;
-                assert.equal(data.environment, 'opt-prod');
+                assert.equal(data.environment, 'payload-prod');
                 assert.equal(data.framework, 'opt-node');
                 assert.equal(data.language, 'javascript');
                 assert.ok(data.server);
@@ -122,9 +126,9 @@ vows.describe('transforms')
               topic: function(options) {
                 var item = {
                   level: 'critical',
+                  environment: 'production',
                   framework: 'star-wars',
                   uuid: '12345',
-                  environment: 'production',
                   custom: {
                     one: 'a1',
                     stuff: 'b2',
@@ -148,6 +152,49 @@ vows.describe('transforms')
                 assert.equal(item.data.one, 'a1');
                 assert.equal(item.data.stuff, 'b2');
                 assert.notEqual(item.data.language, 'english');
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  .addBatch({
+    'addBody': {
+      'options': {
+        'anything': {
+          topic: function() {
+            return {whatever: 'stuff'};
+          },
+          'item': {
+            'with stackInfo': {
+              topic: function(options) {
+                var item = {stackInfo: [{message: 'hey'}]};
+                t.addBody(item, options, this.callback);
+              },
+              'should not error': function(err, item) {
+                assert.ifError(err);
+              },
+              'should set the trace_chain': function(err, item) {
+                assert.ok(item.data.body.trace_chain);
+              },
+              'should not set a message': function(err, item) {
+                assert.ok(!item.data.body.message);
+              }
+            },
+            'with no stackInfo': {
+              topic: function(options) {
+                var item = {message: 'hello'};
+                t.addBody(item, options, this.callback);
+              },
+              'should not error': function(err, item) {
+                assert.ifError(err);
+              },
+              'should not set the trace_chain': function(err, item) {
+                assert.ok(!item.data.body.trace_chain);
+              },
+              'should set a message': function(err, item) {
+                assert.ok(item.data.body.message);
               }
             }
           }
@@ -193,7 +240,7 @@ vows.describe('transforms')
     }
   })
   .addBatch({
-    'buildErrorData': {
+    'handleItemWithError': {
       'options': {
         'anything': {
           topic: function() {
@@ -206,7 +253,7 @@ vows.describe('transforms')
                   data: {body: {yo: 'hey'}},
                   message: 'hey'
                 };
-                t.buildErrorData(item, options, this.callback);
+                t.handleItemWithError(item, options, this.callback);
               },
               'should not error': function(err, item) {
                 assert.ifError(err);
@@ -221,13 +268,13 @@ vows.describe('transforms')
                   data: {body: {}},
                   err: new Error('wookie')
                 };
-                t.buildErrorData(item, options, this.callback);
+                t.handleItemWithError(item, options, this.callback);
               },
               'should not error': function(err, item) {
                 assert.ifError(err);
               },
               'should add some data to the trace_chain': function(err, item) {
-                assert.ok(item.data.body.trace_chain);
+                assert.ok(item.stackInfo);
               }
             },
             'with a normal error': {
@@ -245,13 +292,13 @@ vows.describe('transforms')
                   data: {body: {}},
                   err: err
                 };
-                t.buildErrorData(item, options, this.callback);
+                t.handleItemWithError(item, options, this.callback);
               },
               'should not error': function(err, item) {
                 assert.ifError(err);
               },
               'should add some data to the trace_chain': function(err, item) {
-                assert.ok(item.data.body.trace_chain);
+                assert.ok(item.stackInfo);
               }
             },
             'with a nested error': {
@@ -269,13 +316,13 @@ vows.describe('transforms')
                   data: {body: {}},
                   err: err
                 };
-                t.buildErrorData(item, options, this.callback);
+                t.handleItemWithError(item, options, this.callback);
               },
               'should not error': function(err, item) {
                 assert.ifError(err);
               },
               'should have the right data in the trace_chain': function(err, item) {
-                var trace_chain = item.data.body.trace_chain;
+                var trace_chain = item.stackInfo;
                 assert.lengthOf(trace_chain, 2);
                 assert.equal(trace_chain[0].exception.class, 'CustomError');
                 assert.equal(trace_chain[0].exception.message, 'nested-message');
@@ -309,6 +356,21 @@ vows.describe('transforms')
                 'should not change the item': function(err, item) {
                   assert.equal(item.request, undefined);
                   assert.equal(item.data.request, undefined);
+                }
+              },
+              'with an empty request object': {
+                topic: function(options) {
+                  var item = {
+                    request: {},
+                    data: {body: {message: 'hey'}}
+                  };
+                  t.addRequestData(item, options, this.callback);
+                },
+                'should not error': function(err, item) {
+                  assert.ifError(err);
+                },
+                'should not change request object': function(err, item) {
+                  assert.equal(item.request.headers, undefined);
                 }
               },
               'with a request': {
@@ -611,6 +673,39 @@ vows.describe('transforms')
                 assert.equal(item.data.other, 'thing');
                 assert.match(item.data.someParams, /foo=okay&passwd=\**/);
               }
+            }
+          }
+        }
+      }
+    }
+  })
+  .addBatch({
+    'convertToPayload': {
+      'options': {
+        'with payload data': {
+          topic: function() {
+            return {payload: {client: {code_version: 'bork'}, body: 'hello'}};
+          },
+          item: {
+            topic: function(options) {
+              var item = {
+                data: {
+                  body: {
+                    message: 'hey'
+                  }
+                },
+                other: 'thing'
+              };
+              t.convertToPayload(item, options, this.callback);
+            },
+            'should not error': function(err, item) {
+              assert.ifError(err);
+            },
+            'should only return data': function(err, item) {
+              assert.equal(item.body.message, 'hey');
+            },
+            'should include payload options': function(err, item) {
+              assert.equal(item.client.code_version, 'bork');
             }
           }
         }

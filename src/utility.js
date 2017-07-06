@@ -31,6 +31,7 @@ setupJSON();
  * @param t - a lowercase string containing one of the following type names:
  *    - undefined
  *    - null
+ *    - error
  *    - number
  *    - boolean
  *    - string
@@ -54,6 +55,9 @@ function typeName(x) {
   }
   if (!x) {
     return 'null';
+  }
+  if (x instanceof Error) {
+    return 'error';
   }
   return ({}).toString.call(x).match(/\s([a-zA-Z]+)/)[1].toLowerCase();
 }
@@ -125,7 +129,7 @@ function traverse(obj, func) {
 
   if (isObj) {
     for (k in obj) {
-      if (obj.hasOwnProperty(k)) {
+      if (Object.prototype.hasOwnProperty.call(obj, k)) {
         keys.push(k);
       }
     }
@@ -144,11 +148,9 @@ function traverse(obj, func) {
   return obj;
 }
 
-/* eslint-disable no-unused-vars */
-function redact(val) {
+function redact() {
   return '********';
 }
-/* eslint-enable no-unused-vars */
 
 // from http://stackoverflow.com/a/8809472/1138191
 function uuid4() {
@@ -238,7 +240,7 @@ function addParamsAndAccessTokenToPath(accessToken, options, params) {
   var paramsArray = [];
   var k;
   for (k in params) {
-    if (params.hasOwnProperty(k)) {
+    if (Object.prototype.hasOwnProperty.call(params, k)) {
       paramsArray.push([k, params[k]].join('='));
     }
   }
@@ -340,6 +342,84 @@ function makeUnhandledStackInfo(
     'stack': [location],
     'useragent': useragent
   };
+}
+
+function createItem(args, logger, notifier, requestKeys) {
+  var message, err, custom, callback, request;
+  var arg;
+  var extraArgs = [];
+
+  for (var i = 0, l = args.length; i < l; ++i) {
+    arg = args[i];
+
+    var typ = typeName(arg);
+    switch (typ) {
+      case 'undefined':
+        break;
+      case 'string':
+        message ? extraArgs.push(arg) : message = arg;
+        break;
+      case 'function':
+        callback = wrapRollbarFunction(logger, arg, notifier);
+        break;
+      case 'date':
+        extraArgs.push(arg);
+        break;
+      case 'error':
+      case 'domexception':
+        err ? extraArgs.push(arg) : err = arg;
+        break;
+      case 'object':
+      case 'array':
+        if (arg instanceof Error || (typeof DOMException !== 'undefined' && arg instanceof DOMException)) {
+          err ? extraArgs.push(arg) : err = arg;
+          break;
+        }
+        if (requestKeys && typ === 'object' && !request) {
+          for (var j = 0, len = requestKeys.length; j < len; ++j) {
+            if (arg[requestKeys[j]]) {
+              request = arg;
+              break;
+            }
+          }
+          if (request) {
+            break;
+          }
+        }
+        custom ? extraArgs.push(arg) : custom = arg;
+        break;
+      default:
+        if (arg instanceof Error || (typeof DOMException !== 'undefined' && arg instanceof DOMException)) {
+          err ? extraArgs.push(arg) : err = arg;
+          break;
+        }
+        extraArgs.push(arg);
+    }
+  }
+
+  if (extraArgs.length > 0) {
+    // if custom is an array this turns it into an object with integer keys
+    custom = extend(true, {}, custom);
+    custom.extraArgs = extraArgs;
+  }
+
+  var item = {
+    message: message,
+    err: err,
+    custom: custom,
+    timestamp: (new Date()).getTime(),
+    callback: callback,
+    uuid: uuid4()
+  };
+  if (custom && custom.level !== undefined) {
+    item.level = custom.level;
+    delete custom.level;
+  }
+  if (requestKeys && request) {
+    item.request = request;
+  }
+  item._originalArgs = args;
+  return item;
 }
 
 /*
@@ -478,6 +558,7 @@ module.exports = {
   stringify: stringify,
   jsonParse: jsonParse,
   makeUnhandledStackInfo: makeUnhandledStackInfo,
+  createItem: createItem,
   get: get,
   set: set,
   scrub: scrub

@@ -1,4 +1,14 @@
-/******/ (function(modules) { // webpackBootstrap
+(function webpackUniversalModuleDefinition(root, factory) {
+	if(typeof exports === 'object' && typeof module === 'object')
+		module.exports = factory();
+	else if(typeof define === 'function' && define.amd)
+		define([], factory);
+	else {
+		var a = factory();
+		for(var i in a) (typeof exports === 'object' ? exports : root)[i] = a[i];
+	}
+})(this, function() {
+return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
 /******/ 	var installedModules = {};
 /******/
@@ -44,27 +54,7 @@
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	'use strict';
-	
-	var rollbar = __webpack_require__(1);
-	
-	var options = window && window._rollbarConfig;
-	var alias = options && options.globalAlias || 'Rollbar';
-	var shimRunning = window && window[alias] && typeof window[alias].shimId === 'function' && window[alias].shimId() !== undefined;
-	
-	if (window && !window._rollbarStartTime) {
-	  window._rollbarStartTime = (new Date()).getTime();
-	}
-	
-	if (!shimRunning && options) {
-	  var Rollbar = new rollbar(options);
-	  window[alias] = Rollbar;
-	} else {
-	  window.rollbar = rollbar;
-	  window._rollbarDidLoad = true;
-	}
-	
-	module.exports = rollbar;
+	module.exports = __webpack_require__(1);
 
 
 /***/ },
@@ -73,18 +63,33 @@
 
 	'use strict';
 	
-	var Client = __webpack_require__(2);
-	var _ = __webpack_require__(5);
-	var API = __webpack_require__(9);
-	var logger = __webpack_require__(11);
-	var globals = __webpack_require__(14);
+	var rollbar = __webpack_require__(2);
 	
-	var transport = __webpack_require__(15);
-	var urllib = __webpack_require__(16);
+	if (window && !window._rollbarStartTime) {
+	  window._rollbarStartTime = (new Date()).getTime();
+	}
 	
-	var transforms = __webpack_require__(17);
-	var predicates = __webpack_require__(21);
-	var errorParser = __webpack_require__(18);
+	module.exports = rollbar;
+
+
+/***/ },
+/* 2 */
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	var Client = __webpack_require__(3);
+	var _ = __webpack_require__(6);
+	var API = __webpack_require__(10);
+	var logger = __webpack_require__(12);
+	var globals = __webpack_require__(15);
+	
+	var transport = __webpack_require__(16);
+	var urllib = __webpack_require__(17);
+	
+	var transforms = __webpack_require__(18);
+	var predicates = __webpack_require__(22);
+	var errorParser = __webpack_require__(19);
 	
 	function Rollbar(options, client) {
 	  this.options = _.extend(true, defaultOptions, options);
@@ -433,15 +438,15 @@
 
 
 /***/ },
-/* 2 */
+/* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var RateLimiter = __webpack_require__(3);
-	var Queue = __webpack_require__(4);
-	var Notifier = __webpack_require__(8);
-	var _ = __webpack_require__(5);
+	var RateLimiter = __webpack_require__(4);
+	var Queue = __webpack_require__(5);
+	var Notifier = __webpack_require__(9);
+	var _ = __webpack_require__(6);
 	
 	/*
 	 * Rollbar - the interface to Rollbar
@@ -544,7 +549,7 @@
 
 
 /***/ },
-/* 3 */
+/* 4 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -680,12 +685,12 @@
 
 
 /***/ },
-/* 4 */
+/* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var _ = __webpack_require__(5);
+	var _ = __webpack_require__(6);
 	
 	/*
 	 * Queue - an object which handles which handles a queue of items to be sent to Rollbar.
@@ -921,12 +926,12 @@
 
 
 /***/ },
-/* 5 */
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var extend = __webpack_require__(6);
+	var extend = __webpack_require__(7);
 	
 	var RollbarJSON = {};
 	var __initRollbarJSON = false;
@@ -945,7 +950,7 @@
 	    }
 	  }
 	  if (!isFunction(RollbarJSON.stringify) || !isFunction(RollbarJSON.parse)) {
-	    var setupCustomJSON = __webpack_require__(7);
+	    var setupCustomJSON = __webpack_require__(8);
 	    setupCustomJSON(RollbarJSON);
 	  }
 	}
@@ -1494,7 +1499,7 @@
 
 
 /***/ },
-/* 6 */
+/* 7 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -1586,7 +1591,7 @@
 
 
 /***/ },
-/* 7 */
+/* 8 */
 /***/ function(module, exports) {
 
 	//  json3.js
@@ -2355,12 +2360,12 @@
 
 
 /***/ },
-/* 8 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var _ = __webpack_require__(5);
+	var _ = __webpack_require__(6);
 	
 	/*
 	 * Notifier - the internal object responsible for delegating between the client exposed API, the
@@ -2478,13 +2483,13 @@
 
 
 /***/ },
-/* 9 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var _ = __webpack_require__(5);
-	var helpers = __webpack_require__(10);
+	var _ = __webpack_require__(6);
+	var helpers = __webpack_require__(11);
 	
 	var defaultOptions = {
 	  hostname: 'api.rollbar.com',
@@ -2552,12 +2557,12 @@
 
 
 /***/ },
-/* 10 */
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var _ = __webpack_require__(5);
+	var _ = __webpack_require__(6);
 	
 	function buildPayload(accessToken, data, jsonBackup) {
 	  if (_.isType(data.context, 'object')) {
@@ -2648,16 +2653,16 @@
 
 
 /***/ },
-/* 11 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	/* eslint-disable no-console */
 	
-	__webpack_require__(12);
-	var detection = __webpack_require__(13);
-	var _ = __webpack_require__(5);
+	__webpack_require__(13);
+	var detection = __webpack_require__(14);
+	var _ = __webpack_require__(6);
 	
 	function error() {
 	  var args = Array.prototype.slice.call(arguments, 0);
@@ -2719,7 +2724,7 @@
 
 
 /***/ },
-/* 12 */
+/* 13 */
 /***/ function(module, exports) {
 
 	// Console-polyfill. MIT license.
@@ -2744,7 +2749,7 @@
 
 
 /***/ },
-/* 13 */
+/* 14 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -2782,7 +2787,7 @@
 
 
 /***/ },
-/* 14 */
+/* 15 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -2897,13 +2902,13 @@
 
 
 /***/ },
-/* 15 */
+/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var _ = __webpack_require__(5);
-	var logger = __webpack_require__(11);
+	var _ = __webpack_require__(6);
+	var logger = __webpack_require__(12);
 	
 	/*
 	 * accessToken may be embedded in payload but that should not
@@ -3109,7 +3114,7 @@
 
 
 /***/ },
-/* 16 */
+/* 17 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -3196,14 +3201,14 @@
 
 
 /***/ },
-/* 17 */
+/* 18 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var _ = __webpack_require__(5);
-	var errorParser = __webpack_require__(18);
-	var logger = __webpack_require__(11);
+	var _ = __webpack_require__(6);
+	var errorParser = __webpack_require__(19);
+	var logger = __webpack_require__(12);
 	
 	function handleItemWithError(item, options, callback) {
 	  item.data = item.data || {};
@@ -3469,12 +3474,12 @@
 
 
 /***/ },
-/* 18 */
+/* 19 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var ErrorStackParser = __webpack_require__(19);
+	var ErrorStackParser = __webpack_require__(20);
 	
 	var UNKNOWN_FUNCTION = '?';
 	var ERR_CLASS_REGEXP = new RegExp('^(([a-zA-Z0-9-_$ ]*): *)?(Uncaught )?([a-zA-Z0-9-_$ ]*): ');
@@ -3565,7 +3570,7 @@
 
 
 /***/ },
-/* 19 */
+/* 20 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (root, factory) {
@@ -3574,7 +3579,7 @@
 	
 	    /* istanbul ignore next */
 	    if (true) {
-	        !(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(20)], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory), __WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ? (__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	        !(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(21)], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory), __WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ? (__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
 	    } else if (typeof exports === 'object') {
 	        module.exports = factory(require('stackframe'));
 	    } else {
@@ -3764,7 +3769,7 @@
 
 
 /***/ },
-/* 20 */
+/* 21 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (root, factory) {
@@ -3877,13 +3882,13 @@
 
 
 /***/ },
-/* 21 */
+/* 22 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var _ = __webpack_require__(5);
-	var logger = __webpack_require__(11);
+	var _ = __webpack_require__(6);
+	var logger = __webpack_require__(12);
 	
 	function checkIgnore(item, settings) {
 	  var level = item.level;
@@ -4033,4 +4038,6 @@
 
 
 /***/ }
-/******/ ]);
+/******/ ])
+});
+;

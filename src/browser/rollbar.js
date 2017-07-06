@@ -14,7 +14,7 @@ var errorParser = require('./errorParser');
 function Rollbar(options, client) {
   this.options = _.extend(true, defaultOptions, options);
   var api = new API(this.options, transport, urllib);
-  this.client = client || new Client(this.options, api, logger);
+  this.client = client || new Client(this.options, api, logger, 'browser');
   addTransformsToNotifier(this.client.notifier);
   addPredicatesToQueue(this.client.queue);
   if (this.options.captureUncaught) {
@@ -26,9 +26,33 @@ function Rollbar(options, client) {
   }
 }
 
+var _instance = null;
+Rollbar.init = function(options, client) {
+  if (_instance) {
+    return _instance.global(options).configure(options);
+  }
+  _instance = new Rollbar(options, client);
+  return _instance;
+};
+
+function handleUninitialized(maybeCallback) {
+  var message = 'Rollbar is not initialized';
+  logger.error(message);
+  if (maybeCallback) {
+    maybeCallback(new Error(message));
+  }
+}
+
 Rollbar.prototype.global = function(options) {
   this.client.global(options);
   return this;
+};
+Rollbar.global = function(options) {
+  if (_instance) {
+    return _instance.global(options);
+  } else {
+    handleUninitialized();
+  }
 };
 
 Rollbar.prototype.configure = function(options) {
@@ -37,12 +61,38 @@ Rollbar.prototype.configure = function(options) {
   this.client.configure(options);
   return this;
 };
+Rollbar.configure = function(options) {
+  if (_instance) {
+    return _instance.configure(options);
+  } else {
+    handleUninitialized();
+  }
+};
+
+Rollbar.prototype.lastError = function() {
+  return this.client.lastError;
+};
+Rollbar.lastError = function() {
+  if (_instance) {
+    return _instance.lastError();
+  } else {
+    handleUninitialized();
+  }
+};
 
 Rollbar.prototype.log = function() {
   var item = this._createItem(arguments);
   var uuid = item.uuid;
   this.client.log(item);
   return {uuid: uuid};
+};
+Rollbar.log = function() {
+  if (_instance) {
+    return _instance.log.apply(_instance, arguments);
+  } else {
+    var maybeCallback = _getFirstFunction(arguments);
+    handleUninitialized(maybeCallback);
+  }
 };
 
 Rollbar.prototype.debug = function() {
@@ -51,12 +101,28 @@ Rollbar.prototype.debug = function() {
   this.client.debug(item);
   return {uuid: uuid};
 };
+Rollbar.debug = function() {
+  if (_instance) {
+    return _instance.debug.apply(_instance, arguments);
+  } else {
+    var maybeCallback = _getFirstFunction(arguments);
+    handleUninitialized(maybeCallback);
+  }
+};
 
 Rollbar.prototype.info = function() {
   var item = this._createItem(arguments);
   var uuid = item.uuid;
   this.client.info(item);
   return {uuid: uuid};
+};
+Rollbar.info = function() {
+  if (_instance) {
+    return _instance.info.apply(_instance, arguments);
+  } else {
+    var maybeCallback = _getFirstFunction(arguments);
+    handleUninitialized(maybeCallback);
+  }
 };
 
 Rollbar.prototype.warn = function() {
@@ -65,12 +131,28 @@ Rollbar.prototype.warn = function() {
   this.client.warn(item);
   return {uuid: uuid};
 };
+Rollbar.warn = function() {
+  if (_instance) {
+    return _instance.warn.apply(_instance, arguments);
+  } else {
+    var maybeCallback = _getFirstFunction(arguments);
+    handleUninitialized(maybeCallback);
+  }
+};
 
 Rollbar.prototype.warning = function() {
   var item = this._createItem(arguments);
   var uuid = item.uuid;
   this.client.warning(item);
   return {uuid: uuid};
+};
+Rollbar.warning = function() {
+  if (_instance) {
+    return _instance.warning.apply(_instance, arguments);
+  } else {
+    var maybeCallback = _getFirstFunction(arguments);
+    handleUninitialized(maybeCallback);
+  }
 };
 
 Rollbar.prototype.error = function() {
@@ -79,12 +161,28 @@ Rollbar.prototype.error = function() {
   this.client.error(item);
   return {uuid: uuid};
 };
+Rollbar.error = function() {
+  if (_instance) {
+    return _instance.error.apply(_instance, arguments);
+  } else {
+    var maybeCallback = _getFirstFunction(arguments);
+    handleUninitialized(maybeCallback);
+  }
+};
 
 Rollbar.prototype.critical = function() {
   var item = this._createItem(arguments);
   var uuid = item.uuid;
   this.client.critical(item);
   return {uuid: uuid};
+};
+Rollbar.critical = function() {
+  if (_instance) {
+    return _instance.critical.apply(_instance, arguments);
+  } else {
+    var maybeCallback = _getFirstFunction(arguments);
+    handleUninitialized(maybeCallback);
+  }
 };
 
 Rollbar.prototype.handleUncaughtException = function(message, url, lineno, colno, error, context) {
@@ -123,7 +221,7 @@ Rollbar.prototype.handleUnhandledRejection = function(reason, promise) {
   if (_.isError(reason)) {
     item = this._createItem([message, reason, context]);
   } else {
-    item = this._createItem([message, context]);
+    item = this._createItem([message, reason, context]);
     item.stackInfo = _.makeUnhandledStackInfo(
       message,
       '',
@@ -137,6 +235,8 @@ Rollbar.prototype.handleUnhandledRejection = function(reason, promise) {
   }
   item.level = this.options.uncaughtErrorLevel;
   item._isUncaught = true;
+  item._originalArgs = item._originalArgs || [];
+  item._originalArgs.push(promise);
   this.client.log(item);
 };
 
@@ -176,9 +276,11 @@ Rollbar.prototype.wrap = function(f, context) {
 
       f._wrapped._isWrap = true;
 
-      for (var prop in f) {
-        if (f.hasOwnProperty(prop)) {
-          f._wrapped[prop] = f[prop];
+      if (f.hasOwnProperty) {
+        for (var prop in f) {
+          if (f.hasOwnProperty(prop)) {
+            f._wrapped[prop] = f[prop];
+          }
         }
       }
     }
@@ -187,6 +289,13 @@ Rollbar.prototype.wrap = function(f, context) {
   } catch (e) {
     // Return the original function if the wrap fails.
     return f;
+  }
+};
+Rollbar.wrap = function(f, context) {
+  if (_instance) {
+    return _instance.wrap(f, context);
+  } else {
+    handleUninitialized();
   }
 };
 
@@ -215,63 +324,17 @@ function addPredicatesToQueue(queue) {
 }
 
 Rollbar.prototype._createItem = function(args) {
-  var message, err, custom, callback;
-  var arg;
-  var extraArgs = [];
+  return _.createItem(args, logger, this);
+};
 
-  for (var i = 0, l = args.length; i < l; ++i) {
-    arg = args[i];
-
-    switch (_.typeName(arg)) {
-      case 'undefined':
-        break;
-      case 'string':
-        message ? extraArgs.push(arg) : message = arg;
-        break;
-      case 'function':
-        callback = _.wrapRollbarFunction(logger, arg, this);
-        break;
-      case 'date':
-        extraArgs.push(arg);
-        break;
-      case 'error':
-      case 'domexception':
-        err ? extraArgs.push(arg) : err = arg;
-        break;
-      case 'object':
-      case 'array':
-        if (arg instanceof Error || (typeof DOMException !== 'undefined' && arg instanceof DOMException)) {
-          err ? extraArgs.push(arg) : err = arg;
-          break;
-        }
-        custom ? extraArgs.push(arg) : custom = arg;
-        break;
-      default:
-        if (arg instanceof Error || (typeof DOMException !== 'undefined' && arg instanceof DOMException)) {
-          err ? extraArgs.push(arg) : err = arg;
-          break;
-        }
-        extraArgs.push(arg);
+function _getFirstFunction(args) {
+  for (var i = 0, len = args.length; i < len; ++i) {
+    if (_.isFunction(args[i])) {
+      return args[i];
     }
   }
-
-  if (extraArgs.length > 0) {
-    // if custom is an array this turns it into an object with integer keys
-    custom = _.extend(true, {}, custom);
-    custom.extraArgs = extraArgs;
-  }
-
-  var item = {
-    message: message,
-    err: err,
-    custom: custom,
-    timestamp: (new Date()).getTime(),
-    callback: callback,
-    uuid: _.uuid4()
-  };
-  item._originalArgs = args;
-  return item;
-};
+  return undefined;
+}
 
 /* global __NOTIFIER_VERSION__:false */
 /* global __DEFAULT_BROWSER_SCRUB_FIELDS__:false */
@@ -287,6 +350,7 @@ var defaultOptions = {
   reportLevel: __DEFAULT_REPORT_LEVEL__,
   uncaughtErrorLevel: __DEFAULT_UNCAUGHT_ERROR_LEVEL,
   endpoint: __DEFAULT_ENDPOINT__,
+  verbose: false,
   enabled: true
 };
 

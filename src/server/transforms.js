@@ -5,9 +5,10 @@ var url = require('url');
 var _ = require('../utility');
 
 function baseData(item, options, callback) {
+  var environment = (options.payload && options.payload.environment) || options.environment;
   var data = {
     timestamp: Math.floor((new Date().getTime()) / 1000),
-    environment: item.environment || options.environment,
+    environment: item.environment || environment,
     level: item.level || 'error',
     language: 'javascript',
     framework: item.framework || options.framework,
@@ -46,15 +47,31 @@ function baseData(item, options, callback) {
 function addMessageData(item, options, callback) {
   item.data = item.data || {};
   item.data.body = item.data.body || {};
-  if (item.message !== undefined) {
-    item.data.body.message = {
-      body: item.message
-    };
+  var message = item.message || '';
+  item.data.body.message = {
+    body: message
+  };
+  callback(null, item);
+}
+
+function addErrorData(item, options, callback) {
+  if (item.stackInfo) {
+    item.data = item.data || {};
+    item.data.body = item.data.body || {};
+    item.data.body.trace_chain = item.stackInfo;
   }
   callback(null, item);
 }
 
-function buildErrorData(item, options, callback) {
+function addBody(item, options, callback) {
+  if (item.stackInfo) {
+    addErrorData(item, options, callback);
+  } else {
+    addMessageData(item, options, callback);
+  }
+}
+
+function handleItemWithError(item, options, callback) {
   if (!item.err) {
     callback(null, item);
     return;
@@ -66,14 +83,14 @@ function buildErrorData(item, options, callback) {
   do {
     errors.push(err);
   } while ((err = err.nested) !== undefined);
-
-  item.data = item.data || {};
-  item.data.body = item.data.body || {};
-  item.data.body.trace_chain = chain;
+  item.stackInfo = chain;
 
   var cb = function(err) {
     if (err) {
-      callback(err, null);
+      item.message = item.err.message || item.err.description || item.message || String(item.err);
+      delete item.err;
+      delete item.stackInfo;
+      callback(null, item);
     }
     callback(null, item);
   };
@@ -138,7 +155,13 @@ function scrubPayload(item, options, callback) {
 }
 
 function convertToPayload(item, options, callback) {
-  callback(null, item.data);
+  var payloadOptions = options.payload || {};
+  if (payloadOptions.body) {
+    delete payloadOptions.body;
+  }
+
+  var data = _.extend(true, {}, item.data, payloadOptions);
+  callback(null, data);
 }
 
 /** Helpers **/
@@ -188,13 +211,8 @@ function _buildRequestData(req) {
   if (req.body) {
     var bodyParams = {};
     if (_.isIterable(req.body)) {
-      var isPlainObject = req.body.constructor === undefined;
-
       for (var k in req.body) {
-        var _hasOwnProperty = typeof req.body.hasOwnProperty === 'function'
-          && req.body.hasOwnProperty(k);
-
-        if (_hasOwnProperty || isPlainObject) {
+        if (Object.prototype.hasOwnProperty.call(req.body, k)) {
           bodyParams[k] = req.body[k];
         }
       }
@@ -208,8 +226,10 @@ function _buildRequestData(req) {
 
 module.exports = {
   baseData: baseData,
+  handleItemWithError: handleItemWithError,
+  addBody: addBody,
   addMessageData: addMessageData,
-  buildErrorData: buildErrorData,
+  addErrorData: addErrorData,
   addRequestData: addRequestData,
   scrubPayload: scrubPayload,
   convertToPayload: convertToPayload

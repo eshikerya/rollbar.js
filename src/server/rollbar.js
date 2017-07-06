@@ -25,9 +25,9 @@ function Rollbar(options, client) {
     delete options.minimumLevel;
   }
   this.options = _.extend(true, {}, Rollbar.defaultOptions, options);
-  this.options.environment = this.options.environment || process.env.NODE_ENV || 'unspecified';
+  this.options.environment = this.options.environment || 'unspecified';
   var api = new API(this.options, transport, urllib, jsonBackup);
-  this.client = client || new Client(this.options, api, logger);
+  this.client = client || new Client(this.options, api, logger, 'server');
   addTransformsToNotifier(this.client.notifier);
   addPredicatesToQueue(this.client.queue);
 
@@ -42,7 +42,7 @@ function Rollbar(options, client) {
 var _instance = null;
 Rollbar.init = function(options, client) {
   if (_instance) {
-    return _instance;
+    return _instance.global(options).configure(options);
   }
   _instance = new Rollbar(options, client);
   return _instance;
@@ -77,6 +77,17 @@ Rollbar.prototype.configure = function(options) {
 Rollbar.configure = function(options) {
   if (_instance) {
     return _instance.configure(options);
+  } else {
+    handleUninitialized();
+  }
+};
+
+Rollbar.prototype.lastError = function() {
+  return this.client.lastError;
+};
+Rollbar.lastError = function() {
+  if (_instance) {
+    return _instance.lastError();
   } else {
     handleUninitialized();
   }
@@ -173,7 +184,13 @@ Rollbar.error = function() {
     handleUninitialized(maybeCallback);
   }
 };
-
+Rollbar.prototype._uncaughtError = function() {
+  var item = this._createItem(arguments);
+  item._isUncaught = true;
+  var uuid = item.uuid;
+  this.client.error(item);
+  return {uuid: uuid};
+};
 
 Rollbar.prototype.critical = function() {
   var item = this._createItem(arguments);
@@ -225,6 +242,27 @@ Rollbar.prototype.errorHandler = function() {
 Rollbar.errorHandler = function() {
   if (_instance) {
     return _instance.errorHandler()
+  } else {
+    handleUninitialized();
+  }
+};
+
+function wrapCallback(r, f) {
+  return function() {
+    var err = arguments[0];
+    if (err) {
+      r.error(err);
+    }
+    return f.apply(this, arguments);
+  };
+}
+
+Rollbar.prototype.wrapCallback = function(f) {
+  return wrapCallback(this, f);
+};
+Rollbar.wrapCallback = function(f) {
+  if (_instance) {
+    return _instance.wrapCallback(f);
   } else {
     handleUninitialized();
   }
@@ -322,8 +360,8 @@ Rollbar.handleUncaughtExceptionsAndRejections = function(accessToken, options) {
 function addTransformsToNotifier(notifier) {
   notifier
     .addTransform(transforms.baseData)
-    .addTransform(transforms.addMessageData)
-    .addTransform(transforms.buildErrorData)
+    .addTransform(transforms.handleItemWithError)
+    .addTransform(transforms.addBody)
     .addTransform(transforms.addRequestData)
     .addTransform(transforms.scrubPayload)
     .addTransform(transforms.convertToPayload);
@@ -331,52 +369,13 @@ function addTransformsToNotifier(notifier) {
 
 function addPredicatesToQueue(queue) {
   queue
-    .addPredicate(predicates.checkLevel);
+    .addPredicate(predicates.checkLevel)
+    .addPredicate(predicates.userCheckIgnore);
 }
 
-/*
- * message/error, callback
- * message/error, request
- * message/error, request, callback
- * message/error, request, custom
- * message/error, request, custom, callback
- */
 Rollbar.prototype._createItem = function(args) {
-  var messageOrError = args[0];
-  var request = args[1];
-  var custom = args[2];
-  var callback = args[3];
-
-  if (_.isFunction(request) && !callback) {
-    callback = request;
-    request = null;
-  }
-
-  if (_.isFunction(custom) && !callback) {
-    callback = custom;
-    custom = null;
-  }
-
-  var message, err;
-  if (_.isError(messageOrError)) {
-    err = messageOrError;
-  } else {
-    message = messageOrError;
-  }
-
-  var item = {
-    uuid: _.uuid4(),
-    err: err,
-    message: message,
-    callback: callback,
-    request: request
-  };
-  if (custom && custom.level !== undefined) {
-    item.level = custom.level;
-    delete custom.level;
-  }
-  item.custom = custom;
-  return item;
+  var requestKeys = ['headers', 'protocol', 'url', 'method', 'body', 'route'];
+  return _.createItem(args, logger, this, requestKeys);
 };
 
 function _getFirstFunction(args) {
@@ -393,7 +392,7 @@ Rollbar.prototype.handleUncaughtExceptions = function() {
   delete this.options.exitOnUncaughtException;
 
   addOrReplaceRollbarHandler('uncaughtException', function(err) {
-    this.error(err, function(err) {
+    this._uncaughtError(err, function(err) {
       if (err) {
         logger.error('Encountered error while handling an uncaught exception.');
         logger.error(err);
@@ -408,7 +407,7 @@ Rollbar.prototype.handleUncaughtExceptions = function() {
 
 Rollbar.prototype.handleUnhandledRejections = function() {
   addOrReplaceRollbarHandler('unhandledRejection', function(reason) {
-    this.error(reason, function(err) {
+    this._uncaughtError(reason, function(err) {
       if (err) {
         logger.error('Encountered error while handling an uncaught exception.');
         logger.error(err);
@@ -448,7 +447,7 @@ Rollbar.Error = RollbarError;
 
 Rollbar.defaultOptions = {
   host: os.hostname(),
-  environment: 'development',
+  environment: process.env.NODE_ENV || 'development',
   framework: 'node-js',
   showReportedMessageTraces: false,
   notifier: {
@@ -459,6 +458,7 @@ Rollbar.defaultOptions = {
   scrubFields: packageJson.defaults.server.scrubFields,
   addRequestData: null,
   reportLevel: packageJson.defaults.reportLevel,
+  verbose: false,
   enabled: true
 };
 

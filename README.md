@@ -1,4 +1,4 @@
-# Rollbar notifier for JavaScript [![Build Status](https://api.travis-ci.org/rollbar/rollbar.js.png?branch=v2.0.2)](https://travis-ci.org/rollbar/rollbar.js)
+# Rollbar notifier for JavaScript [![Build Status](https://api.travis-ci.org/rollbar/rollbar.js.png?branch=v2.1.0)](https://travis-ci.org/rollbar/rollbar.js)
 
 <!-- Sub:[TOC] -->
 
@@ -22,7 +22,7 @@ var _rollbarConfig = {
     }
 };
 // Rollbar Snippet
-!function(r){function o(e){if(n[e])return n[e].exports;var t=n[e]={exports:{},id:e,loaded:!1};return r[e].call(t.exports,t,t.exports,o),t.loaded=!0,t.exports}var n={};return o.m=r,o.c=n,o.p="",o(0)}([function(r,o,n){"use strict";var e=n(1),t=n(4);_rollbarConfig=_rollbarConfig||{},_rollbarConfig.rollbarJsUrl=_rollbarConfig.rollbarJsUrl||"https://cdnjs.cloudflare.com/ajax/libs/rollbar.js/2.0.2/rollbar.min.js",_rollbarConfig.async=void 0===_rollbarConfig.async||_rollbarConfig.async;var a=e.setupShim(window,_rollbarConfig),l=t(_rollbarConfig);window.rollbar=e.Rollbar,a.loadFull(window,document,!_rollbarConfig.async,_rollbarConfig,l)},function(r,o,n){"use strict";function e(r){return function(){try{return r.apply(this,arguments)}catch(r){try{console.error("[Rollbar]: Internal error",r)}catch(r){}}}}function t(r,o){this.options=r,this._rollbarOldOnError=null;var n=s++;this.shimId=function(){return n},window&&window._rollbarShims&&(window._rollbarShims[n]={handler:o,messages:[]})}function a(r,o){var n=o.globalAlias||"Rollbar";if("object"==typeof r[n])return r[n];r._rollbarShims={},r._rollbarWrappedError=null;var t=new p(o);return e(function(){return o.captureUncaught&&(t._rollbarOldOnError=r.onerror,i.captureUncaughtExceptions(r,t),i.wrapGlobals(r,t)),o.captureUnhandledRejections&&i.captureUnhandledRejections(r,t),r[n]=t,t})()}function l(r){return e(function(){var o=this,n=Array.prototype.slice.call(arguments,0),e={shim:o,method:r,args:n,ts:new Date};window._rollbarShims[this.shimId()].messages.push(e)})}var i=n(2),s=0,c=n(3),d=function(r,o){return new t(r,o)},p=c.bind(null,d);t.prototype.loadFull=function(r,o,n,t,a){var l=function(){var o;if(void 0===r._rollbarDidLoad){o=new Error("rollbar.js did not load");for(var n,e,t,l,i=0;n=r._rollbarShims[i++];)for(n=n.messages||[];e=n.shift();)for(t=e.args||[],i=0;i<t.length;++i)if(l=t[i],"function"==typeof l){l(o);break}}"function"==typeof a&&a(o)},i=!1,s=o.createElement("script"),c=o.getElementsByTagName("script")[0],d=c.parentNode;s.crossOrigin="",s.src=t.rollbarJsUrl,n||(s.async=!0),s.onload=s.onreadystatechange=e(function(){if(!(i||this.readyState&&"loaded"!==this.readyState&&"complete"!==this.readyState)){s.onload=s.onreadystatechange=null;try{d.removeChild(s)}catch(r){}i=!0,l()}}),d.insertBefore(s,c)},t.prototype.wrap=function(r,o){try{var n;if(n="function"==typeof o?o:function(){return o||{}},"function"!=typeof r)return r;if(r._isWrap)return r;if(!r._wrapped){r._wrapped=function(){try{return r.apply(this,arguments)}catch(e){var o=e;throw"string"==typeof o&&(o=new String(o)),o._rollbarContext=n()||{},o._rollbarContext._wrappedSource=r.toString(),window._rollbarWrappedError=o,o}},r._wrapped._isWrap=!0;for(var e in r)r.hasOwnProperty(e)&&(r._wrapped[e]=r[e])}return r._wrapped}catch(o){return r}};for(var u="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection".split(","),f=0;f<u.length;++f)t.prototype[u[f]]=l(u[f]);r.exports={setupShim:a,Rollbar:p}},function(r,o){"use strict";function n(r,o){if(r){var n;"function"==typeof o._rollbarOldOnError?n=o._rollbarOldOnError:r.onerror&&!r.onerror.belongsToRollbar&&(n=r.onerror,o._rollbarOldOnError=n);var t=function(){var t=Array.prototype.slice.call(arguments,0);e(r,o,n,t)};t.belongsToRollbar=!0,r.onerror=t}}function e(r,o,n,e){r._rollbarWrappedError&&(e[4]||(e[4]=r._rollbarWrappedError),e[5]||(e[5]=r._rollbarWrappedError._rollbarContext),r._rollbarWrappedError=null),o.handleUncaughtException.apply(o,e),n&&n.apply(r,e)}function t(r,o){if(r){"function"==typeof r._rollbarURH&&r.removeEventListener("unhandledrejection",r._rollbarURH);var n=function(r){var n=r.reason,e=r.promise,t=r.detail;!n&&t&&(n=t.reason,e=t.promise),o&&o.handleUnhandledRejection&&o.handleUnhandledRejection(n,e)};r._rollbarURH=n,r.addEventListener("unhandledrejection",n)}}function a(r,o){if(r){var n,e,t="EventTarget,Window,Node,ApplicationCache,AudioTrackList,ChannelMergerNode,CryptoOperation,EventSource,FileReader,HTMLUnknownElement,IDBDatabase,IDBRequest,IDBTransaction,KeyOperation,MediaController,MessagePort,ModalWindow,Notification,SVGElementInstance,Screen,TextTrack,TextTrackCue,TextTrackList,WebSocket,WebSocketWorker,Worker,XMLHttpRequest,XMLHttpRequestEventTarget,XMLHttpRequestUpload".split(",");for(n=0;n<t.length;++n)e=t[n],r[e]&&r[e].prototype&&l(o,r[e].prototype)}}function l(r,o){if(o.hasOwnProperty&&o.hasOwnProperty("addEventListener")){var n=o.addEventListener;n._rollbarOldAdd&&(n=n._rollbarOldAdd);var e=function(o,e,t){n.call(this,o,r.wrap(e),t)};e._rollbarOldAdd=n,o.addEventListener=e;var t=o.removeEventListener;t._rollbarOldRemove&&(t=t._rollbarOldRemove);var a=function(r,o,n){t.call(this,r,o&&o._wrapped||o,n)};a._rollbarOldRemove=t,o.removeEventListener=a}}r.exports={captureUncaughtExceptions:n,captureUnhandledRejections:t,wrapGlobals:a}},function(r,o){"use strict";function n(r,o){this.impl=r(o,this),this.options=o,e(n.prototype)}function e(r){for(var o=function(r){return function(){var o=Array.prototype.slice.call(arguments,0);if(this.impl[r])return this.impl[r].apply(this.impl,o)}},n="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,_createItem,wrap,loadFull,shimId".split(","),e=0;e<n.length;e++)r[n[e]]=o(n[e])}n.prototype._swapAndProcessMessages=function(r,o){this.impl=r(this.options);for(var n,e,t;n=o.shift();)e=n.method,t=n.args,this[e]&&"function"==typeof this[e]&&this[e].apply(this,t);return this},r.exports=n},function(r,o){"use strict";r.exports=function(r){return function(o){if(!o&&!window._rollbarInitialized){r=r||{};for(var n,e,t=r.globalAlias||"Rollbar",a=window.rollbar,l=function(r){return new a(r)},i=0;n=window._rollbarShims[i++];)e||(e=n.handler),n.handler._swapAndProcessMessages(l,n.messages);window[t]=e,window._rollbarInitialized=!0}}}}]);
+!function(r){function o(e){if(n[e])return n[e].exports;var t=n[e]={exports:{},id:e,loaded:!1};return r[e].call(t.exports,t,t.exports,o),t.loaded=!0,t.exports}var n={};return o.m=r,o.c=n,o.p="",o(0)}([function(r,o,n){"use strict";var e=n(1),t=n(4);_rollbarConfig=_rollbarConfig||{},_rollbarConfig.rollbarJsUrl=_rollbarConfig.rollbarJsUrl||"https://cdnjs.cloudflare.com/ajax/libs/rollbar.js/2.1.0/rollbar.min.js",_rollbarConfig.async=void 0===_rollbarConfig.async||_rollbarConfig.async;var a=e.setupShim(window,_rollbarConfig),l=t(_rollbarConfig);window.rollbar=e.Rollbar,a.loadFull(window,document,!_rollbarConfig.async,_rollbarConfig,l)},function(r,o,n){"use strict";function e(r){return function(){try{return r.apply(this,arguments)}catch(r){try{console.error("[Rollbar]: Internal error",r)}catch(r){}}}}function t(r,o){this.options=r,this._rollbarOldOnError=null;var n=s++;this.shimId=function(){return n},window&&window._rollbarShims&&(window._rollbarShims[n]={handler:o,messages:[]})}function a(r,o){var n=o.globalAlias||"Rollbar";if("object"==typeof r[n])return r[n];r._rollbarShims={},r._rollbarWrappedError=null;var t=new d(o);return e(function(){return o.captureUncaught&&(t._rollbarOldOnError=r.onerror,i.captureUncaughtExceptions(r,t,!0),i.wrapGlobals(r,t,!0)),o.captureUnhandledRejections&&i.captureUnhandledRejections(r,t,!0),r[n]=t,t})()}function l(r){return e(function(){var o=this,n=Array.prototype.slice.call(arguments,0),e={shim:o,method:r,args:n,ts:new Date};window._rollbarShims[this.shimId()].messages.push(e)})}var i=n(2),s=0,c=n(3),p=function(r,o){return new t(r,o)},d=c.bind(null,p);t.prototype.loadFull=function(r,o,n,t,a){var l=function(){var o;if(void 0===r._rollbarDidLoad){o=new Error("rollbar.js did not load");for(var n,e,t,l,i=0;n=r._rollbarShims[i++];)for(n=n.messages||[];e=n.shift();)for(t=e.args||[],i=0;i<t.length;++i)if(l=t[i],"function"==typeof l){l(o);break}}"function"==typeof a&&a(o)},i=!1,s=o.createElement("script"),c=o.getElementsByTagName("script")[0],p=c.parentNode;s.crossOrigin="",s.src=t.rollbarJsUrl,n||(s.async=!0),s.onload=s.onreadystatechange=e(function(){if(!(i||this.readyState&&"loaded"!==this.readyState&&"complete"!==this.readyState)){s.onload=s.onreadystatechange=null;try{p.removeChild(s)}catch(r){}i=!0,l()}}),p.insertBefore(s,c)},t.prototype.wrap=function(r,o){try{var n;if(n="function"==typeof o?o:function(){return o||{}},"function"!=typeof r)return r;if(r._isWrap)return r;if(!r._wrapped&&(r._wrapped=function(){try{return r.apply(this,arguments)}catch(e){var o=e;throw"string"==typeof o&&(o=new String(o)),o._rollbarContext=n()||{},o._rollbarContext._wrappedSource=r.toString(),window._rollbarWrappedError=o,o}},r._wrapped._isWrap=!0,r.hasOwnProperty))for(var e in r)r.hasOwnProperty(e)&&(r._wrapped[e]=r[e]);return r._wrapped}catch(o){return r}};for(var u="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection".split(","),f=0;f<u.length;++f)t.prototype[u[f]]=l(u[f]);r.exports={setupShim:a,Rollbar:d}},function(r,o){"use strict";function n(r,o,n){if(r){var t;"function"==typeof o._rollbarOldOnError?t=o._rollbarOldOnError:r.onerror&&!r.onerror.belongsToShim&&(t=r.onerror,o._rollbarOldOnError=t);var a=function(){var n=Array.prototype.slice.call(arguments,0);e(r,o,t,n)};a.belongsToShim=n,r.onerror=a}}function e(r,o,n,e){r._rollbarWrappedError&&(e[4]||(e[4]=r._rollbarWrappedError),e[5]||(e[5]=r._rollbarWrappedError._rollbarContext),r._rollbarWrappedError=null),o.handleUncaughtException.apply(o,e),n&&n.apply(r,e)}function t(r,o,n){if(r){"function"==typeof r._rollbarURH&&r._rollbarURH.belongsToShim&&r.removeEventListener("unhandledrejection",r._rollbarURH);var e=function(r){var n=r.reason,e=r.promise,t=r.detail;!n&&t&&(n=t.reason,e=t.promise),o&&o.handleUnhandledRejection&&o.handleUnhandledRejection(n,e)};e.belongsToShim=n,r._rollbarURH=e,r.addEventListener("unhandledrejection",e)}}function a(r,o,n){if(r){var e,t,a="EventTarget,Window,Node,ApplicationCache,AudioTrackList,ChannelMergerNode,CryptoOperation,EventSource,FileReader,HTMLUnknownElement,IDBDatabase,IDBRequest,IDBTransaction,KeyOperation,MediaController,MessagePort,ModalWindow,Notification,SVGElementInstance,Screen,TextTrack,TextTrackCue,TextTrackList,WebSocket,WebSocketWorker,Worker,XMLHttpRequest,XMLHttpRequestEventTarget,XMLHttpRequestUpload".split(",");for(e=0;e<a.length;++e)t=a[e],r[t]&&r[t].prototype&&l(o,r[t].prototype,n)}}function l(r,o,n){if(o.hasOwnProperty&&o.hasOwnProperty("addEventListener")){for(var e=o.addEventListener;e._rollbarOldAdd&&e.belongsToShim;)e=e._rollbarOldAdd;var t=function(o,n,t){e.call(this,o,r.wrap(n),t)};t._rollbarOldAdd=e,t.belongsToShim=n,o.addEventListener=t;for(var a=o.removeEventListener;a._rollbarOldRemove&&a.belongsToShim;)a=a._rollbarOldRemove;var l=function(r,o,n){a.call(this,r,o&&o._wrapped||o,n)};l._rollbarOldRemove=a,l.belongsToShim=n,o.removeEventListener=l}}r.exports={captureUncaughtExceptions:n,captureUnhandledRejections:t,wrapGlobals:a}},function(r,o){"use strict";function n(r,o){this.impl=r(o,this),this.options=o,e(n.prototype)}function e(r){for(var o=function(r){return function(){var o=Array.prototype.slice.call(arguments,0);if(this.impl[r])return this.impl[r].apply(this.impl,o)}},n="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,_createItem,wrap,loadFull,shimId".split(","),e=0;e<n.length;e++)r[n[e]]=o(n[e])}n.prototype._swapAndProcessMessages=function(r,o){this.impl=r(this.options);for(var n,e,t;n=o.shift();)e=n.method,t=n.args,this[e]&&"function"==typeof this[e]&&this[e].apply(this,t);return this},r.exports=n},function(r,o){"use strict";r.exports=function(r){return function(o){if(!o&&!window._rollbarInitialized){r=r||{};for(var n,e,t=r.globalAlias||"Rollbar",a=window.rollbar,l=function(r){return new a(r)},i=0;n=window._rollbarShims[i++];)e||(e=n.handler),n.handler._swapAndProcessMessages(l,n.messages);window[t]=e,window._rollbarInitialized=!0}}}}]);
 // End Rollbar Snippet
 </script>
 ```
@@ -112,7 +112,7 @@ Rollbar by default. Additionally, one can catch any Angular 2 specific exception
 `@angular/core/ErrorHandler` component by setting a custom `ErrorHandler` class:
 
 ```js
-import Rollbar = require('rollbar');
+import * as Rollbar from 'rollbar';
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule, ErrorHandler } from '@angular/core';
 import { AppComponent } from './app.component';
@@ -154,7 +154,7 @@ export class AppModule { }
 
 ### Backbone.js
 
-Rollbar.js supports Backbone.js with no additional configuration required. 
+Rollbar.js supports Backbone.js with no additional configuration required.
 
 ## UMD / Browserify / Requirejs / Webpack
 
@@ -290,7 +290,7 @@ Rollbar.global({itemsPerMinute: 5});
 // Set the top-level notifier's checkIgnore() function
 Rollbar.configure({checkIgnore: function(isUncaught, args, payload) {
     // ignore all uncaught errors and all 'debug' items
-    return isUncaught === true || payload.data.level === 'debug';
+    return isUncaught === true || payload.level === 'debug';
 }});
 
 // Set the environment, default log level and the context
@@ -327,7 +327,7 @@ If you would like to remove this limit, set it to `undefined`.
 
 Default: `60`
 </dd>
-  
+
 <dt>maxItems
 </dt>
 <dd>Max number of items to report per page load. When this limit is reached, an additional item will be reported stating that the limit was reached. Like `itemsPerMinute`, this limit counts uncaught errors (reported through ```window.onerror```) and any direct calls to ```Rollbar.log/debug/info/warning/error/critical()```.
@@ -339,7 +339,7 @@ Default: ```0``` (no limit)
 ### Context
 
   <dl>
-  
+
 <dt>checkIgnore
 </dt>
 <dd>An optional function that will be used to ignore uncaught exceptions based on its return value. The function signature should be: ```function checkIgnore(isUncaught, args, payload) { ... }``` and should return ```true``` if the error should be ignored.
@@ -358,12 +358,12 @@ Default: ```null```
 
 Default: ```true```
 </dd>
-  
+
 <dt>hostWhiteList
 </dt>
 <dd>Check payload frames for white listed domains. This is an array of strings, each of which get compiled to a `Regexp`. If no file in the trace matches one of these domains the payload is ignored.
 </dd>
-  
+
 <dt>logLevel
 </dt>
 <dd>The severity level used for calls to ```Rollbar.log()```. One of ```"critical"```, ```"error"```, ```"warning"```, ```"info"```, ```"debug"```.
@@ -377,7 +377,7 @@ Default: ```"debug"```
 
 Default: ```"warning"```
 </dd>
-  
+
 <dt>scrubFields
 </dt>
 <dd>A list containing names of keys/fields/query parameters to scrub. Scrubbed fields will be normalized to all `*` before being reported to Rollbar. This is useful for sensitive information that you do not want to send to Rollbar. e.g. User tokens
@@ -395,7 +395,7 @@ Default: ```null```
 // For example:
 // Set a custom fingerprint
 var transformer = function(payload) {
-  payload.data.fingerprint = 'my custom fingerprint';
+  payload.fingerprint = 'my custom fingerprint';
 };
 
 Rollbar.configure({transform: transformer});
@@ -413,7 +413,7 @@ var _rollbarConfig = {
 
 Default: ```"error"```
 </dd>
-  
+
 <dt>endpoint
 </dt>
 <dd>The url to which items get POSTed. This is mostly relevant to our enterprise customers. You will, however, need this if you're proxying the requests through your own server, or you're an enterprise customer.
@@ -426,7 +426,7 @@ Default: ```'https://api.rollbar.com/api/1/'```
 
 These keys should all be within the `payload` key.
 
-e.g. 
+e.g.
 
 ```js
 Rollbar.configure({
@@ -464,7 +464,7 @@ Rollbar.configure({
 </dt>
 <dd>Version control number (i.e. git SHA) of the current revision. Used for linking filenames in stacktraces to GitHub.
 </dd>
- 
+
 <dt>source_map_enabled
 </dt>
 <dd>When `true`, the Rollbar service will attempt to find and apply source maps to all frames in the stack trace.
@@ -510,7 +510,7 @@ Rollbar.configure({
 <dt>branch
 </dt>
 <dd>The name of the branch of the code that is running. Used for linking filenames in stacktraces to GitHub.
-  
+
 Default: ```"master"```
 
 </dd>
@@ -599,9 +599,9 @@ __Params__
 
 ### Rollbar.handleUnhandledRejection()
 
-This method is used to record unhandled Promise rejections via the window event `unhandledrejection`.  Many promise 
+This method is used to record unhandled Promise rejections via the window event `unhandledrejection`.  Many promise
 libraries, including Bluebird, lie, and native Promise support (Chrome only currently, but it is a [standard to be
-built upon](https://developer.mozilla.org/en-US/docs/Web/API/WindowEventHandlers/onunhandledrejection)). 
+built upon](https://developer.mozilla.org/en-US/docs/Web/API/WindowEventHandlers/onunhandledrejection)).
 
 To enable this handling, you should provide `captureUnhandledRejections` to the config given to this Rollbar constructor.
 
@@ -616,7 +616,7 @@ __Params__
 
 Log a message and potentially send it to Rollbar. The level that the message or error is logged at is determined by the `logLevel` config option.
 
-In order for the message to be sent to Rollbar, the log level must be greater than or equal to the `reportLevel` config option. 
+In order for the message to be sent to Rollbar, the log level must be greater than or equal to the `reportLevel` config option.
 
 See [configuration](https://rollbar.com/docs/notifier/rollbar.js/#configuration-reference) for more information on configuring log levels.
 
@@ -636,8 +636,8 @@ _Note_: order does not matter
 ##### Log a debug message
 
 ```js
-// By default, the .log() method uses the 
-// "debug" log level and "warning" report level 
+// By default, the .log() method uses the
+// "debug" log level and "warning" report level
 // so this message will not be sent to Rollbar.
 Rollbar.log("hello world!");
 ```
@@ -710,6 +710,45 @@ window.Rollbar.configure({
   }
 });
 ```
+
+
+## Using inside an embedded component
+
+Sometimes you want to include Rollbar inside a component that is intended to be used on someone
+else's site. To do this, you do not want to interfer with an existing Rollbar integration on the
+containing site. Moreover, you would like unhandled exceptions to be available to both Rollbar
+instances with the ability to use the configuration options to filter out exceptions you might not
+be interested in.
+
+The way that Rollbar typically operates is to load a shimmed version of the library via the snippet
+listed above in the head of your page. This allows us to capture errors as soon as possible rather
+than other libraries which only can start catching exceptions once their full library has loaded
+asyncronously. This shimmed version of the library assumes the global `_rollbarConfig` variable and
+uses this to configure things and handle setup after the full library has downloaded. In order for
+multiple independent components to load Rollbar, only one can effectively use this snippet plus
+global variable approach. Therefore, we provide the bundles: `/dist/rollbar.noconflict.umd.js` and
+`/dis/rollbar.noconflict.umd.min.js`. To use these, you most likely want to use something like
+Webpack to bundle your code, and then use:
+
+```js
+var rollbar = require('rollbar/dist/rollbar.noconflict.umd');
+var Rollbar = new rollbar({
+    accessToken: "POST_CLIENT_ITEM_ACCESS_TOKEN",
+    captureUncaught: true,
+    captureUnhandledRejections: true,
+    payload: {
+        environment: "some-embedded-component"
+    }
+});
+```
+
+The require will not have side effects on globals (unless it is the first instance of a Rollbar
+library being loaded which will then set up an initial timestamp on the window if possible). The
+construction of the Rollbar object with the `captureUncaught` and/or `captureUnhandledRejections`
+configuration options set to true will cause handlers to be added to the global error handling
+mechanisms on the window. Note that this will cause errors to be delivered to your instance of
+Rollbar as well as any other instances on the page (so you might get errors for someone else's
+code).
 
 
 ## Examples
@@ -807,7 +846,7 @@ server.start(function(err) {
   if (err)
     throw err;
   console.log('Server running at:', server.info.uri);
-}); 
+});
 ```
 
 ### Standalone
@@ -819,7 +858,7 @@ var Rollbar = require("rollbar");
 var rollbar = new Rollbar("POST_SERVER_ITEM_ACCESS_TOKEN");
 ```
 
-Other options can be passed into the constructor using a second parameter. E.g.:
+Other options can be passed into the constructor as a collection. E.g.:
 
 ```js
 // Configure the library to send errors to api.rollbar.com
@@ -831,6 +870,32 @@ new Rollbar({
 ```
 
 ## Server Usage
+
+### Rollbar.log()
+
+Log a message and potentially send it to Rollbar. The level that the message or error is logged at is determined by the `logLevel` config option.
+
+In order for the message to be sent to Rollbar, the log level must be greater than or equal to the `reportLevel` config option.
+
+See [configuration](https://rollbar.com/docs/notifier/rollbar.js/#configuration-reference) for more information on configuring log levels.
+
+__Returns__: `undefined`
+
+__Params__
+
+_Note_: order does not matter, however the first `Object` that contains at least one key from the list under `request` will be considered a request object.
+
+- message: `String` - The message to send to Rollbar.
+- err: `Exception` - The exception object to send.
+- custom: `Object` - The custom payload data to send to Rollbar.
+- callback: `Function` - The function to call once the message has been sent to Rollbar.
+- request: `Object` - A request object containing at least one of these optional keys:
+  - `headers`: an object containing the request headers
+  - `protocol`: the request protocol (e.g. `"https"`)
+  - `url`: the URL starting after the domain name (e.g. `"/index.html?foo=bar"`)
+  - `method`: the request method (e.g. `"GET"`)
+  - `body`: the request body as a string
+  - `route`: an object containing a 'path' key, which will be used as the "context" for the event (e.g. `{"path": "home/index"}`)
 
 ### Caught exceptions
 
@@ -846,8 +911,7 @@ try {
 } catch (e) {
   rollbar.error(e);
 
-  // if you have a request object (or a function that returns one), pass it as the second arg
-  // see below for details about what the request object is expected to be
+  // if you have a request object (or a function that returns one), pass it in
   rollbar.error(e, request);
 
   // you can also pass a callback, which will be called upon success/failure
@@ -859,15 +923,13 @@ try {
     }
   });
 
-  // if you have a request and a callback, pass the callback last
+  // pass a request and a callback
   rollbar.error(e, request, callback);
 
-  // to specify payload options - like extra data, or the level - pass a custom object as the third argument. The second argument must be a request or null
+  // to specify payload options - like extra data, or the level - pass a custom object
   rollbar.error(e, request, {level: "info"});
-  rollbar.error(e, null, {level: "warning", custom: {someKey: "arbitrary value"}});
 
-  // you can also pass a callback as the last argument
-  rollbar.error(e, null, {level: "info"}, callback);
+  // you can also pass a callback
   rollbar.error(e, request, {level: "info"}, callback);
 }
 ```
@@ -908,7 +970,7 @@ rollbar.warning(
 
 If your Node.js application is responding to web requests, you can send data about the current request along with each report to Rollbar. This will allow you to replay requests, track events by browser, IP address, and much more.
 
-All of the logging methods accept a `request` parameter as the second argument.
+All of the logging methods accept a `request` parameter.
 
 If you're using Express, just pass the express request object. If you're using something custom, pass an object with these keys (all optional):
 

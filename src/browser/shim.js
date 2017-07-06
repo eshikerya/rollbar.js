@@ -46,12 +46,12 @@ function setupShim(window, options) {
   return _wrapInternalErr(function() {
     if (options.captureUncaught) {
       handler._rollbarOldOnError = window.onerror;
-      globals.captureUncaughtExceptions(window, handler);
-      globals.wrapGlobals(window, handler);
+      globals.captureUncaughtExceptions(window, handler, true);
+      globals.wrapGlobals(window, handler, true);
     }
 
     if (options.captureUnhandledRejections) {
-      globals.captureUnhandledRejections(window, handler);
+      globals.captureUnhandledRejections(window, handler, true);
     }
 
     window[alias] = handler;
@@ -148,9 +148,11 @@ Shim.prototype.wrap = function(f, context) {
 
       f._wrapped._isWrap = true;
 
-      for (var prop in f) {
-        if (f.hasOwnProperty(prop)) {
-          f._wrapped[prop] = f[prop];
+      if (f.hasOwnProperty) {
+        for (var prop in f) {
+          if (f.hasOwnProperty(prop)) {
+            f._wrapped[prop] = f[prop];
+          }
         }
       }
     }
