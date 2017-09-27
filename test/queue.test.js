@@ -174,7 +174,7 @@ describe('addItem', function() {
         var options = {verbose: true};
         var queue = new Queue(rateLimiter, api, logger, options);
 
-        var item = {data: {body: {trace: {exception: {message: 'hello'}}}}};
+        var item = {body: {trace: {exception: {message: 'hello'}}}};
         var serverResponse = {success: true};
 
         rateLimiter.handler = function(i) {
@@ -198,7 +198,7 @@ describe('addItem', function() {
         var options = {verbose: true};
         var queue = new Queue(rateLimiter, api, logger, options);
 
-        var item = {data: {body: {message: {body: 'hello'}}}};
+        var item = {body: {message: {body: 'hello'}}};
         var serverResponse = {success: true};
 
         rateLimiter.handler = function(i) {
@@ -222,7 +222,7 @@ describe('addItem', function() {
         var options = {verbose: false};
         var queue = new Queue(rateLimiter, api, logger, options);
 
-        var item = {data: {body: {message: {body: 'hello'}}}};
+        var item = {body: {message: {body: 'hello'}}};
         var serverResponse = {success: true};
 
         rateLimiter.handler = function(i) {
@@ -325,7 +325,7 @@ describe('addItem', function() {
           done();
         });
       });
-      it('should stop and callback if a wait callback is set', function(done) {
+      it('should call wait if set', function(done) {
         var rateLimiter = new (TestRateLimiterGenerator())();
         var api = new (TestApiGenerator())();
         var logger = new (TestLoggerGenerator())();
@@ -343,14 +343,11 @@ describe('addItem', function() {
           expect(false).to.be.ok();
           cb(null, serverResponse);
         };
-        var waitCalled = false;
         queue.wait(function() {
-          waitCalled = true;
+          done();
         });
         queue.addItem({mykey: 'myvalue'}, function(err, resp) {
-          expect(resp).to.not.be.ok();
-          expect(waitCalled).to.be.ok();
-          done(err);
+          expect(resp).to.be.ok();
         });
       });
       it('should work if wait is called with a non-function', function(done) {

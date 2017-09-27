@@ -42,7 +42,7 @@
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
@@ -67,38 +67,44 @@
 	module.exports = rollbar;
 
 
-/***/ },
+/***/ }),
 /* 1 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	var Client = __webpack_require__(2);
 	var _ = __webpack_require__(5);
-	var API = __webpack_require__(9);
-	var logger = __webpack_require__(11);
-	var globals = __webpack_require__(14);
+	var API = __webpack_require__(10);
+	var logger = __webpack_require__(12);
+	var globals = __webpack_require__(15);
 	
-	var transport = __webpack_require__(15);
-	var urllib = __webpack_require__(16);
+	var transport = __webpack_require__(16);
+	var urllib = __webpack_require__(17);
 	
-	var transforms = __webpack_require__(17);
-	var predicates = __webpack_require__(21);
-	var errorParser = __webpack_require__(18);
+	var transforms = __webpack_require__(18);
+	var sharedTransforms = __webpack_require__(22);
+	var predicates = __webpack_require__(23);
+	var errorParser = __webpack_require__(19);
+	var Instrumenter = __webpack_require__(24);
 	
 	function Rollbar(options, client) {
 	  this.options = _.extend(true, defaultOptions, options);
 	  var api = new API(this.options, transport, urllib);
 	  this.client = client || new Client(this.options, api, logger, 'browser');
+	
 	  addTransformsToNotifier(this.client.notifier);
 	  addPredicatesToQueue(this.client.queue);
-	  if (this.options.captureUncaught) {
+	  if (this.options.captureUncaught || this.options.handleUncaughtExceptions) {
 	    globals.captureUncaughtExceptions(window, this);
 	    globals.wrapGlobals(window, this);
 	  }
-	  if (this.options.captureUnhandledRejections) {
+	  if (this.options.captureUnhandledRejections || this.options.handleUnhandledRejections) {
 	    globals.captureUnhandledRejections(window, this);
 	  }
+	
+	  this.instrumenter = new Instrumenter(this.options, this.client.telemeter, this, window, document);
+	  this.instrumenter.instrument();
 	}
 	
 	var _instance = null;
@@ -130,15 +136,20 @@
 	  }
 	};
 	
-	Rollbar.prototype.configure = function(options) {
+	Rollbar.prototype.configure = function(options, payloadData) {
 	  var oldOptions = this.options;
-	  this.options = _.extend(true, {}, oldOptions, options);
-	  this.client.configure(options);
+	  var payload = {};
+	  if (payloadData) {
+	    payload = {payload: payloadData};
+	  }
+	  this.options = _.extend(true, {}, oldOptions, options, payload);
+	  this.client.configure(options, payloadData);
+	  this.instrumenter.configure(options);
 	  return this;
 	};
-	Rollbar.configure = function(options) {
+	Rollbar.configure = function(options, payloadData) {
 	  if (_instance) {
-	    return _instance.configure(options);
+	    return _instance.configure(options, payloadData);
 	  } else {
 	    handleUninitialized();
 	  }
@@ -315,7 +326,7 @@
 	  this.client.log(item);
 	};
 	
-	Rollbar.prototype.wrap = function(f, context) {
+	Rollbar.prototype.wrap = function(f, context, _before) {
 	  try {
 	    var ctxFn;
 	    if(_.isFunction(context)) {
@@ -332,8 +343,11 @@
 	      return f;
 	    }
 	
-	    if (!f._wrapped) {
-	      f._wrapped = function () {
+	    if (!f._rollbar_wrapped) {
+	      f._rollbar_wrapped = function () {
+	        if (_before && _.isFunction(_before)) {
+	          _before.apply(this, arguments);
+	        }
 	        try {
 	          return f.apply(this, arguments);
 	        } catch(exc) {
@@ -349,18 +363,18 @@
 	        }
 	      };
 	
-	      f._wrapped._isWrap = true;
+	      f._rollbar_wrapped._isWrap = true;
 	
 	      if (f.hasOwnProperty) {
 	        for (var prop in f) {
 	          if (f.hasOwnProperty(prop)) {
-	            f._wrapped[prop] = f[prop];
+	            f._rollbar_wrapped[prop] = f[prop];
 	          }
 	        }
 	      }
 	    }
 	
-	    return f._wrapped;
+	    return f._rollbar_wrapped;
 	  } catch (e) {
 	    // Return the original function if the wrap fails.
 	    return f;
@@ -374,6 +388,32 @@
 	  }
 	};
 	
+	Rollbar.prototype.captureEvent = function(metadata, level) {
+	  return this.client.captureEvent(metadata, level);
+	};
+	Rollbar.captureEvent = function(metadata, level) {
+	  if (_instance) {
+	    return _instance.captureEvent(metadata, level);
+	  } else {
+	    handleUninitialized();
+	  }
+	};
+	
+	// The following two methods are used internally and are not meant for public use
+	Rollbar.prototype.captureDomContentLoaded = function(e, ts) {
+	  if (!ts) {
+	    ts = new Date();
+	  }
+	  return this.client.captureDomContentLoaded(ts);
+	};
+	
+	Rollbar.prototype.captureLoad = function(e, ts) {
+	  if (!ts) {
+	    ts = new Date();
+	  }
+	  return this.client.captureLoad(ts);
+	};
+	
 	/* Internal */
 	
 	function addTransformsToNotifier(notifier) {
@@ -385,15 +425,18 @@
 	    .addTransform(transforms.addClientInfo(window))
 	    .addTransform(transforms.addPluginInfo(window))
 	    .addTransform(transforms.addBody)
+	    .addTransform(sharedTransforms.addMessageWithError)
+	    .addTransform(sharedTransforms.addTelemetryData)
 	    .addTransform(transforms.scrubPayload)
 	    .addTransform(transforms.userTransform)
-	    .addTransform(transforms.itemToPayload);
+	    .addTransform(sharedTransforms.itemToPayload);
 	}
 	
 	function addPredicatesToQueue(queue) {
 	  queue
 	    .addPredicate(predicates.checkIgnore)
 	    .addPredicate(predicates.userCheckIgnore)
+	    .addPredicate(predicates.urlIsNotBlacklisted)
 	    .addPredicate(predicates.urlIsWhitelisted)
 	    .addPredicate(predicates.messageIsIgnored);
 	}
@@ -419,7 +462,7 @@
 	/* global __DEFAULT_ENDPOINT__:false */
 	
 	var defaultOptions = {
-	  version: ("2.1.0"),
+	  version: ("2.2.8"),
 	  scrubFields: (["pw","pass","passwd","password","secret","confirm_password","confirmPassword","password_confirmation","passwordConfirmation","access_token","accessToken","secret_key","secretKey","secretToken"]),
 	  logLevel: ("debug"),
 	  reportLevel: ("debug"),
@@ -432,15 +475,16 @@
 	module.exports = Rollbar;
 
 
-/***/ },
+/***/ }),
 /* 2 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	var RateLimiter = __webpack_require__(3);
 	var Queue = __webpack_require__(4);
 	var Notifier = __webpack_require__(8);
+	var Telemeter = __webpack_require__(9);
 	var _ = __webpack_require__(5);
 	
 	/*
@@ -453,9 +497,10 @@
 	function Rollbar(options, api, logger, platform) {
 	  this.options = _.extend(true, {}, options);
 	  this.logger = logger;
-	  Rollbar.rateLimiter.setPlatformOptions(platform, options);
+	  Rollbar.rateLimiter.setPlatformOptions(platform, this.options);
 	  this.queue = new Queue(Rollbar.rateLimiter, api, logger, this.options);
 	  this.notifier = new Notifier(this.queue, this.options);
+	  this.telemeter = new Telemeter(this.options);
 	  this.lastError = null;
 	}
 	
@@ -471,10 +516,15 @@
 	  return this;
 	};
 	
-	Rollbar.prototype.configure = function(options) {
+	Rollbar.prototype.configure = function(options, payloadData) {
 	  this.notifier && this.notifier.configure(options);
+	  this.telemeter && this.telemeter.configure(options);
 	  var oldOptions = this.options;
-	  this.options = _.extend(true, {}, oldOptions, options);
+	  var payload = {};
+	  if (payloadData) {
+	    payload = {payload: payloadData};
+	  }
+	  this.options = _.extend(true, {}, oldOptions, options, payload);
 	  return this;
 	};
 	
@@ -511,21 +561,37 @@
 	  this.queue.wait(callback);
 	};
 	
+	Rollbar.prototype.captureEvent = function(metadata, level) {
+	  return this.telemeter.captureEvent(metadata, level);
+	};
+	
+	Rollbar.prototype.captureDomContentLoaded = function(ts) {
+	  return this.telemeter.captureDomContentLoaded(ts);
+	};
+	
+	Rollbar.prototype.captureLoad = function(ts) {
+	  return this.telemeter.captureLoad(ts);
+	};
+	
 	/* Internal */
 	
 	Rollbar.prototype._log = function(defaultLevel, item) {
 	  if (this._sameAsLastError(item)) {
 	    return;
 	  }
-	  _.wrapRollbarFunction(this.logger, function() {
+	  try {
 	    var callback = null;
 	    if (item.callback) {
 	      callback = item.callback;
 	      delete item.callback;
 	    }
 	    item.level = item.level || defaultLevel;
+	    item.telemetryEvents = this.telemeter.copyEvents();
+	    this.telemeter._captureRollbarItem(item);
 	    this.notifier.log(item, callback);
-	  }, this)();
+	  } catch (e) {
+	    this.logger.error(e)
+	  }
 	};
 	
 	Rollbar.prototype._defaultLogLevel = function() {
@@ -543,9 +609,9 @@
 	module.exports = Rollbar;
 
 
-/***/ },
+/***/ }),
 /* 3 */
-/***/ function(module, exports) {
+/***/ (function(module, exports) {
 
 	'use strict';
 	
@@ -679,9 +745,9 @@
 	module.exports = RateLimiter;
 
 
-/***/ },
+/***/ }),
 /* 4 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
@@ -706,10 +772,12 @@
 	  this.logger = logger;
 	  this.options = options;
 	  this.predicates = [];
+	  this.pendingItems = [];
 	  this.pendingRequests = [];
 	  this.retryQueue = [];
 	  this.retryHandle = null;
 	  this.waitCallback = null;
+	  this.waitIntervalID = null;
 	}
 	
 	/*
@@ -740,6 +808,17 @@
 	  return this;
 	};
 	
+	Queue.prototype.addPendingItem = function(item) {
+	  this.pendingItems.push(item);
+	};
+	
+	Queue.prototype.removePendingItem = function(item) {
+	  var idx = this.pendingItems.indexOf(item);
+	  if (idx !== -1) {
+	    this.pendingItems.splice(idx, 1);
+	  }
+	};
+	
 	/*
 	 * addItem - Send an item to the Rollbar API if all of the predicates are satisfied
 	 *
@@ -748,21 +827,20 @@
 	 *  in the case of a success, otherwise response will be null and error will have a value. If both
 	 *  error and response are null then the item was stopped by a predicate which did not consider this
 	 *  to be an error condition, but nonetheless did not send the item to the API.
+	 *  @param originalError - The original error before any transformations that is to be logged if any
 	 */
-	Queue.prototype.addItem = function(item, callback) {
+	Queue.prototype.addItem = function(item, callback, originalError, originalItem) {
 	  if (!callback || !_.isFunction(callback)) {
 	    callback = function() { return; };
 	  }
 	  var predicateResult = this._applyPredicates(item);
 	  if (predicateResult.stop) {
+	    this.removePendingItem(originalItem);
 	    callback(predicateResult.err);
 	    return;
 	  }
-	  if (this.waitCallback) {
-	    callback();
-	    return;
-	  }
-	  this._maybeLog(item);
+	  this._maybeLog(item, originalError);
+	  this.removePendingItem(originalItem);
 	  this.pendingRequests.push(item);
 	  try {
 	    this._makeApiRequest(item, function(err, resp) {
@@ -786,9 +864,15 @@
 	    return;
 	  }
 	  this.waitCallback = callback;
-	  if (this.pendingRequests.length == 0) {
-	    this.waitCallback();
+	  if (this._maybeCallWait()) {
+	    return;
 	  }
+	  if (this.waitIntervalID) {
+	    this.waitIntervalID = clearInterval(this.waitIntervalID);
+	  }
+	  this.waitIntervalID = setInterval(function() {
+	    this._maybeCallWait();
+	  }.bind(this), 500);
 	};
 	
 	/* _applyPredicates - Sequentially applies the predicates that have been added to the queue to the
@@ -890,39 +974,46 @@
 	 * @param item - the item previously added to the pending request queue
 	 */
 	Queue.prototype._dequeuePendingRequest = function(item) {
-	  var shouldCallWaitOnRemove = this.pendingRequests.length == 1;
-	  for (var i = this.pendingRequests.length; i >= 0; i--) {
-	    if (this.pendingRequests[i] == item) {
-	      this.pendingRequests.splice(i, 1);
-	      if (shouldCallWaitOnRemove && _.isFunction(this.waitCallback)) {
-	        this.waitCallback();
-	      }
-	      return;
-	    }
+	  var idx = this.pendingRequests.indexOf(item);
+	  if (idx !== -1) {
+	    this.pendingRequests.splice(idx, 1);
+	    this._maybeCallWait();
 	  }
 	};
 	
-	Queue.prototype._maybeLog = function(item) {
+	Queue.prototype._maybeLog = function(data, originalError) {
 	  if (this.logger && this.options.verbose) {
-	    var message = _.get(item, 'data.body.trace.exception.message');
-	    message = message || _.get(item, 'data.body.trace_chain.0.exception.message');
+	    var message = originalError;
+	    message = message || _.get(data, 'body.trace.exception.message');
+	    message = message || _.get(data, 'body.trace_chain.0.exception.message');
 	    if (message) {
 	      this.logger.error(message);
 	      return;
 	    }
-	    message = _.get(item, 'data.body.message.body');
+	    message = _.get(data, 'body.message.body');
 	    if (message) {
 	      this.logger.log(message);
 	    }
 	  }
 	};
 	
+	Queue.prototype._maybeCallWait = function() {
+	  if (_.isFunction(this.waitCallback) && this.pendingItems.length === 0 && this.pendingRequests.length === 0) {
+	    if (this.waitIntervalID) {
+	      this.waitIntervalID = clearInterval(this.waitIntervalID);
+	    }
+	    this.waitCallback();
+	    return true;
+	  }
+	  return false;
+	};
+	
 	module.exports = Queue;
 
 
-/***/ },
+/***/ }),
 /* 5 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
@@ -937,10 +1028,10 @@
 	  __initRollbarJSON = true;
 	
 	  if (isDefined(JSON)) {
-	    if (isFunction(JSON.stringify)) {
+	    if (isNativeFunction(JSON.stringify)) {
 	      RollbarJSON.stringify = JSON.stringify;
 	    }
-	    if (isFunction(JSON.parse)) {
+	    if (isNativeFunction(JSON.parse)) {
 	      RollbarJSON.parse = JSON.parse;
 	    }
 	  }
@@ -999,6 +1090,30 @@
 	  return isType(f, 'function');
 	}
 	
+	/* isNativeFunction - a convenience function for checking if a value is a native JS function
+	 *
+	 * @param f - any value
+	 * @returns true if f is a native JS function, otherwise false
+	 */
+	function isNativeFunction(f) {
+	  var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
+	  var funcMatchString = Function.prototype.toString.call(Object.prototype.hasOwnProperty)
+	    .replace(reRegExpChar, '\\$&')
+	    .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?');
+	  var reIsNative = RegExp('^' + funcMatchString + '$');
+	  return isObject(f) && reIsNative.test(f);
+	}
+	
+	/* isObject - Checks if the argument is an object
+	 *
+	 * @param value - any value
+	 * @returns true is value is an object function is an object)
+	*/
+	function isObject(value) {
+	  var type = typeof value;
+	  return value != null && (type == 'object' || type == 'function');
+	}
+	
 	/*
 	 * isDefined - a convenience function for checking if a value is not equal to undefined
 	 *
@@ -1031,29 +1146,16 @@
 	  return isType(e, 'error');
 	}
 	
-	/* wrapRollbarFunction - puts a try/catch around a function, logs caught exceptions to console.error
-	 *
-	 * @param f - a function
-	 * @param ctx - an optional context to bind the function to
-	 */
-	function wrapRollbarFunction(logger, f, ctx) {
-	  return function() {
-	    var self = ctx || this;
-	    try {
-	      return f.apply(self, arguments);
-	    } catch (e) {
-	      logger.error(e);
-	    }
-	  };
-	}
-	
-	function traverse(obj, func) {
-	  var k;
-	  var v;
-	  var i;
+	function traverse(obj, func, seen) {
+	  var k, v, i;
 	  var isObj = isType(obj, 'object');
 	  var isArray = isType(obj, 'array');
 	  var keys = [];
+	
+	  if (isObj && seen.indexOf(obj) !== -1) {
+	    return obj;
+	  }
+	  seen.push(obj);
 	
 	  if (isObj) {
 	    for (k in obj) {
@@ -1070,7 +1172,7 @@
 	  for (i = 0; i < keys.length; ++i) {
 	    k = keys[i];
 	    v = obj[k];
-	    obj[k] = func(k, v);
+	    obj[k] = func(k, v, seen);
 	  }
 	
 	  return obj;
@@ -1082,7 +1184,7 @@
 	
 	// from http://stackoverflow.com/a/8809472/1138191
 	function uuid4() {
-	  var d = new Date().getTime();
+	  var d = now();
 	  var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
 	    var r = (d + Math.random() * 16) % 16 | 0;
 	    d = Math.floor(d / 16);
@@ -1272,7 +1374,17 @@
 	  };
 	}
 	
-	function createItem(args, logger, notifier, requestKeys) {
+	function wrapCallback(logger, f) {
+	  return function(err, resp) {
+	    try {
+	      f(err, resp);
+	    } catch (e) {
+	      logger.error(e);
+	    }
+	  };
+	}
+	
+	function createItem(args, logger, notifier, requestKeys, lambdaContext) {
 	  var message, err, custom, callback, request;
 	  var arg;
 	  var extraArgs = [];
@@ -1288,7 +1400,7 @@
 	        message ? extraArgs.push(arg) : message = arg;
 	        break;
 	      case 'function':
-	        callback = wrapRollbarFunction(logger, arg, notifier);
+	        callback = wrapCallback(logger, arg);
 	        break;
 	      case 'date':
 	        extraArgs.push(arg);
@@ -1305,7 +1417,7 @@
 	        }
 	        if (requestKeys && typ === 'object' && !request) {
 	          for (var j = 0, len = requestKeys.length; j < len; ++j) {
-	            if (arg[requestKeys[j]]) {
+	            if (arg[requestKeys[j]] !== undefined) {
 	              request = arg;
 	              break;
 	            }
@@ -1335,7 +1447,7 @@
 	    message: message,
 	    err: err,
 	    custom: custom,
-	    timestamp: (new Date()).getTime(),
+	    timestamp: now(),
 	    callback: callback,
 	    uuid: uuid4()
 	  };
@@ -1345,6 +1457,9 @@
 	  }
 	  if (requestKeys && request) {
 	    item.request = request;
+	  }
+	  if (lambdaContext) {
+	    item.lambdaContext = lambdaContext;
 	  }
 	  item._originalArgs = args;
 	  return item;
@@ -1431,11 +1546,11 @@
 	    return v;
 	  }
 	
-	  function scrubber(k, v) {
+	  function scrubber(k, v, seen) {
 	    var tmpV = valScrubber(k, v);
 	    if (tmpV === v) {
 	      if (isType(v, 'object') || isType(v, 'array')) {
-	        return traverse(v, scrubber);
+	        return traverse(v, scrubber, seen);
 	      }
 	      return paramScrubber(tmpV);
 	    } else {
@@ -1443,7 +1558,7 @@
 	    }
 	  }
 	
-	  traverse(data, scrubber);
+	  traverse(data, scrubber, []);
 	  return data;
 	}
 	
@@ -1468,17 +1583,42 @@
 	  return ret;
 	}
 	
+	function formatArgsAsString(args) {
+	  var i, len, arg;
+	  var result = [];
+	  for (i = 0, len = args.length; i < len; i++) {
+	    arg = args[i];
+	    if (typeof arg === 'object') {
+	      arg = stringify(arg);
+	      arg = arg.error || arg.value;
+	      if (arg.length > 500)
+	        arg = arg.substr(0,500)+'...';
+	    } else if (typeof arg === 'undefined') {
+	      arg = 'undefined';
+	    }
+	    result.push(arg);
+	  }
+	  return result.join(' ');
+	}
+	
+	function now() {
+	  if (Date.now) {
+	    return +Date.now();
+	  }
+	  return +new Date();
+	}
+	
 	module.exports = {
 	  isType: isType,
 	  typeName: typeName,
 	  isFunction: isFunction,
+	  isNativeFunction: isNativeFunction,
 	  isIterable: isIterable,
 	  isError: isError,
 	  extend: extend,
 	  traverse: traverse,
 	  redact: redact,
 	  uuid4: uuid4,
-	  wrapRollbarFunction: wrapRollbarFunction,
 	  LEVELS: LEVELS,
 	  sanitizeUrl: sanitizeUrl,
 	  addParamsAndAccessTokenToPath: addParamsAndAccessTokenToPath,
@@ -1489,13 +1629,15 @@
 	  createItem: createItem,
 	  get: get,
 	  set: set,
-	  scrub: scrub
+	  scrub: scrub,
+	  formatArgsAsString: formatArgsAsString,
+	  now: now
 	};
 
 
-/***/ },
+/***/ }),
 /* 6 */
-/***/ function(module, exports) {
+/***/ (function(module, exports) {
 
 	'use strict';
 	
@@ -1585,9 +1727,9 @@
 	
 
 
-/***/ },
+/***/ }),
 /* 7 */
-/***/ function(module, exports) {
+/***/ (function(module, exports) {
 
 	//  json3.js
 	//  2017-02-21
@@ -2354,9 +2496,9 @@
 	module.exports = setupCustomJSON;
 
 
-/***/ },
+/***/ }),
 /* 8 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
@@ -2430,11 +2572,14 @@
 	    return callback(new Error('Rollbar is not enabled'));
 	  }
 	
+	  this.queue.addPendingItem(item);
+	  var originalError = item.err;
 	  this._applyTransforms(item, function(err, i) {
 	    if (err) {
+	      this.queue.removePendingItem(item);
 	      return callback(err, null);
 	    }
-	    this.queue.addItem(i, callback);
+	    this.queue.addItem(i, callback, originalError, item);
 	  }.bind(this));
 	};
 	
@@ -2470,21 +2615,177 @@
 	
 	    transforms[transformIndex](i, options, cb);
 	  };
-	  
+	
 	  cb(null, item);
 	};
 	
 	module.exports = Notifier;
 
 
-/***/ },
+/***/ }),
 /* 9 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	var _ = __webpack_require__(5);
-	var helpers = __webpack_require__(10);
+	
+	var MAX_EVENTS = 100;
+	
+	function Telemeter(options) {
+	  this.queue = [];
+	  this.options = _.extend(true, {}, options);
+	  var maxTelemetryEvents = this.options.maxTelemetryEvents || MAX_EVENTS;
+	  this.maxQueueSize = Math.max(0, Math.min(maxTelemetryEvents, MAX_EVENTS));
+	}
+	
+	Telemeter.prototype.configure = function(options) {
+	  this.options = _.extend(true, {}, options);
+	  var maxTelemetryEvents = this.options.maxTelemetryEvents || MAX_EVENTS;
+	  var newMaxEvents = Math.max(0, Math.min(maxTelemetryEvents, MAX_EVENTS));
+	  var deleteCount = 0;
+	  if (this.maxQueueSize > newMaxEvents) {
+	    deleteCount = this.maxQueueSize - newMaxEvents;
+	  }
+	  this.maxQueueSize = newMaxEvents;
+	  this.queue.splice(0, deleteCount);
+	};
+	
+	Telemeter.prototype.copyEvents = function() {
+	  return Array.prototype.slice.call(this.queue, 0);
+	};
+	
+	Telemeter.prototype.capture = function(type, metadata, level, rollbarUUID, timestamp) {
+	  var e = {
+	    level: getLevel(type, level),
+	    type: type,
+	    timestamp_ms: timestamp || _.now(),
+	    body: metadata,
+	    source: 'client'
+	  };
+	  if (rollbarUUID) {
+	    e.uuid = rollbarUUID;
+	  }
+	  this.push(e);
+	  return e;
+	};
+	
+	Telemeter.prototype.captureEvent = function(metadata, level, rollbarUUID) {
+	  return this.capture('manual', metadata, level, rollbarUUID);
+	};
+	
+	Telemeter.prototype.captureError = function(err, level, rollbarUUID, timestamp) {
+	  var metadata = {
+	    message: err.message || String(err)
+	  };
+	  if (err.stack) {
+	    metadata.stack = err.stack;
+	  }
+	  return this.capture('error', metadata, level, rollbarUUID, timestamp);
+	};
+	
+	Telemeter.prototype.captureLog = function(message, level, rollbarUUID, timestamp) {
+	  return this.capture('log', {
+	    message: message
+	  }, level, rollbarUUID, timestamp);
+	};
+	
+	Telemeter.prototype.captureNetwork = function(metadata, subtype, rollbarUUID) {
+	  subtype = subtype || 'xhr';
+	  metadata.subtype = metadata.subtype || subtype;
+	  var level = this.levelFromStatus(metadata.status_code);
+	  return this.capture('network', metadata, level, rollbarUUID);
+	};
+	
+	Telemeter.prototype.levelFromStatus = function(statusCode) {
+	  if (statusCode >= 200 && statusCode < 400) {
+	    return 'info';
+	  }
+	  if (statusCode === 0 || statusCode >= 400) {
+	    return 'error';
+	  }
+	  return 'info';
+	};
+	
+	Telemeter.prototype.captureDom = function(subtype, element, value, checked, rollbarUUID) {
+	  var metadata = {
+	    subtype: subtype,
+	    element: element
+	  };
+	  if (value !== undefined) {
+	    metadata.value = value;
+	  }
+	  if (checked !== undefined) {
+	    metadata.checked = checked;
+	  }
+	  return this.capture('dom', metadata, 'info', rollbarUUID);
+	};
+	
+	Telemeter.prototype.captureNavigation = function(from, to, rollbarUUID) {
+	  return this.capture('navigation', {from: from, to: to}, 'info', rollbarUUID);
+	};
+	
+	Telemeter.prototype.captureDomContentLoaded = function(ts) {
+	  return this.capture('navigation', {subtype: 'DOMContentLoaded'}, 'info', undefined, ts && ts.getTime());
+	  /**
+	   * If we decide to make this a dom event instead, then use the line below:
+	  return this.capture('dom', {subtype: 'DOMContentLoaded'}, 'info', undefined, ts && ts.getTime());
+	  */
+	};
+	Telemeter.prototype.captureLoad = function(ts) {
+	  return this.capture('navigation', {subtype: 'load'}, 'info', undefined, ts && ts.getTime());
+	  /**
+	   * If we decide to make this a dom event instead, then use the line below:
+	  return this.capture('dom', {subtype: 'load'}, 'info', undefined, ts && ts.getTime());
+	  */
+	};
+	
+	Telemeter.prototype.captureConnectivityChange = function(type, rollbarUUID) {
+	  return this.captureNetwork({change: type}, 'connectivity', rollbarUUID);
+	};
+	
+	// Only intended to be used internally by the notifier
+	Telemeter.prototype._captureRollbarItem = function(item) {
+	  if (item.err) {
+	    return this.captureError(item.err, item.level, item.uuid, item.timestamp);
+	  }
+	  if (item.message) {
+	    return this.captureLog(item.message, item.level, item.uuid, item.timestamp);
+	  }
+	  if (item.custom) {
+	    return this.capture('log', item.custom, item.level, item.uuid, item.timestamp);
+	  }
+	};
+	
+	Telemeter.prototype.push = function(e) {
+	  this.queue.push(e);
+	  if (this.queue.length > this.maxQueueSize) {
+	    this.queue.shift();
+	  }
+	};
+	
+	function getLevel(type, level) {
+	  if (level) {
+	    return level;
+	  }
+	  var defaultLevel = {
+	    error: 'error',
+	    manual: 'info'
+	  };
+	  return defaultLevel[type] || 'info';
+	}
+	
+	module.exports = Telemeter;
+
+
+/***/ }),
+/* 10 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	var _ = __webpack_require__(5);
+	var helpers = __webpack_require__(11);
 	
 	var defaultOptions = {
 	  hostname: 'api.rollbar.com',
@@ -2551,9 +2852,9 @@
 	module.exports = Api;
 
 
-/***/ },
-/* 10 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 11 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
@@ -2647,23 +2948,22 @@
 	};
 
 
-/***/ },
-/* 11 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 12 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	/* eslint-disable no-console */
-	
-	__webpack_require__(12);
-	var detection = __webpack_require__(13);
+	__webpack_require__(13);
+	var detection = __webpack_require__(14);
 	var _ = __webpack_require__(5);
 	
 	function error() {
 	  var args = Array.prototype.slice.call(arguments, 0);
 	  args.unshift('Rollbar:');
 	  if (detection.ieVersion() <= 8) {
-	    console.error(formatArgsAsString.apply(null, args));
+	    console.error(_.formatArgsAsString(args));
 	  } else {
 	    console.error.apply(console, args);
 	  }
@@ -2673,7 +2973,7 @@
 	  var args = Array.prototype.slice.call(arguments, 0);
 	  args.unshift('Rollbar:');
 	  if (detection.ieVersion() <= 8) {
-	    console.info(formatArgsAsString.apply(null, args));
+	    console.info(_.formatArgsAsString(args));
 	  } else {
 	    console.info.apply(console, args);
 	  }
@@ -2683,30 +2983,10 @@
 	  var args = Array.prototype.slice.call(arguments, 0);
 	  args.unshift('Rollbar:');
 	  if (detection.ieVersion() <= 8) {
-	    console.log(formatArgsAsString.apply(null, args));
+	    console.log(_.formatArgsAsString(args));
 	  } else {
 	    console.log.apply(console, args);
 	  }
-	}
-	
-	// IE8 logs objects as [object Object].  This is a wrapper that makes it a bit
-	// more convenient by logging the JSON of the object.  But only do that in IE8 and below
-	// because other browsers are smarter and handle it properly.
-	function formatArgsAsString() {
-	  var args = [];
-	  for (var i=0; i < arguments.length; i++) {
-	    var arg = arguments[i];
-	    if (typeof arg === 'object') {
-	      arg = _.stringify(arg);
-	      arg = arg.error || arg.value;
-	      if (arg.length > 500)
-	        arg = arg.substr(0,500)+'...';
-	    } else if (typeof arg === 'undefined') {
-	      arg = 'undefined';
-	    }
-	    args.push(arg);
-	  }
-	  return args.join(' ');
 	}
 	
 	/* eslint-enable no-console */
@@ -2718,9 +2998,9 @@
 	};
 
 
-/***/ },
-/* 12 */
-/***/ function(module, exports) {
+/***/ }),
+/* 13 */
+/***/ (function(module, exports) {
 
 	// Console-polyfill. MIT license.
 	// https://github.com/paulmillr/console-polyfill
@@ -2743,9 +3023,9 @@
 	})(typeof window === 'undefined' ? this : window);
 
 
-/***/ },
-/* 13 */
-/***/ function(module, exports) {
+/***/ }),
+/* 14 */
+/***/ (function(module, exports) {
 
 	'use strict';
 	
@@ -2781,9 +3061,9 @@
 	module.exports = Detection;
 
 
-/***/ },
-/* 14 */
-/***/ function(module, exports) {
+/***/ }),
+/* 15 */
+/***/ (function(module, exports) {
 
 	'use strict';
 	
@@ -2881,7 +3161,7 @@
 	      oldRemoveEventListener = oldRemoveEventListener._rollbarOldRemove;
 	    }
 	    var removeFn = function(event, callback, bubble) {
-	      oldRemoveEventListener.call(this, event, callback && callback._wrapped || callback, bubble);
+	      oldRemoveEventListener.call(this, event, callback && callback._rollbar_wrapped || callback, bubble);
 	    };
 	    removeFn._rollbarOldRemove = oldRemoveEventListener;
 	    removeFn.belongsToShim = shim;
@@ -2896,14 +3176,14 @@
 	};
 
 
-/***/ },
-/* 15 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 16 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	var _ = __webpack_require__(5);
-	var logger = __webpack_require__(11);
+	var logger = __webpack_require__(12);
 	
 	/*
 	 * accessToken may be embedded in payload but that should not
@@ -3108,9 +3388,9 @@
 	};
 
 
-/***/ },
-/* 16 */
-/***/ function(module, exports) {
+/***/ }),
+/* 17 */
+/***/ (function(module, exports) {
 
 	'use strict';
 	
@@ -3195,15 +3475,15 @@
 	};
 
 
-/***/ },
-/* 17 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 18 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	var _ = __webpack_require__(5);
-	var errorParser = __webpack_require__(18);
-	var logger = __webpack_require__(11);
+	var errorParser = __webpack_require__(19);
+	var logger = __webpack_require__(12);
 	
 	function handleItemWithError(item, options, callback) {
 	  item.data = item.data || {};
@@ -3238,6 +3518,7 @@
 	    framework: 'browser-js',
 	    language: 'javascript',
 	    server: {},
+	    uuid: item.uuid,
 	    notifier: {
 	      name: 'rollbar-browser-js',
 	      version: options.version
@@ -3349,7 +3630,7 @@
 	  };
 	
 	  if (description) {
-	    trace.exception.description = description || 'uncaught exception';
+	    trace.exception.description = description;
 	  }
 	
 	  // Transform a TraceKit stackInfo object into a Rollbar trace
@@ -3375,6 +3656,9 @@
 	        method: (!stackFrame.func || stackFrame.func === '?') ? '[anonymous]' : stackFrame.func,
 	        colno: stackFrame.column
 	      };
+	      if (frame.method && frame.method.endsWith && frame.method.endsWith('._rollbar_wrapped')) {
+	        continue;
+	      }
 	
 	      code = pre = post = null;
 	      contextLength = stackFrame.context ? stackFrame.context.length : 0;
@@ -3441,19 +3725,6 @@
 	  callback(null, newItem);
 	}
 	
-	function itemToPayload(item, options, callback) {
-	  var payloadOptions = options.payload || {};
-	  if (payloadOptions.body) {
-	    delete payloadOptions.body;
-	  }
-	
-	  var data = _.extend(true, {}, item.data, payloadOptions);
-	  if (item._isUncaught) {
-	    data._isUncaught = true;
-	  }
-	  callback(null, data);
-	}
-	
 	module.exports = {
 	  handleItemWithError: handleItemWithError,
 	  ensureItemHasSomethingToSay: ensureItemHasSomethingToSay,
@@ -3463,18 +3734,17 @@
 	  addPluginInfo: addPluginInfo,
 	  addBody: addBody,
 	  scrubPayload: scrubPayload,
-	  userTransform: userTransform,
-	  itemToPayload: itemToPayload
+	  userTransform: userTransform
 	};
 
 
-/***/ },
-/* 18 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 19 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var ErrorStackParser = __webpack_require__(19);
+	var ErrorStackParser = __webpack_require__(20);
 	
 	var UNKNOWN_FUNCTION = '?';
 	var ERR_CLASS_REGEXP = new RegExp('^(([a-zA-Z0-9-_$ ]*): *)?(Uncaught )?([a-zA-Z0-9-_$ ]*): ');
@@ -3564,9 +3834,9 @@
 	};
 
 
-/***/ },
-/* 19 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 20 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (root, factory) {
 	    'use strict';
@@ -3574,7 +3844,7 @@
 	
 	    /* istanbul ignore next */
 	    if (true) {
-	        !(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(20)], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory), __WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ? (__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+	        !(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(21)], __WEBPACK_AMD_DEFINE_FACTORY__ = (factory), __WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ? (__WEBPACK_AMD_DEFINE_FACTORY__.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__)) : __WEBPACK_AMD_DEFINE_FACTORY__), __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
 	    } else if (typeof exports === 'object') {
 	        module.exports = factory(require('stackframe'));
 	    } else {
@@ -3763,9 +4033,9 @@
 	
 
 
-/***/ },
-/* 20 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 21 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (root, factory) {
 	    'use strict';
@@ -3876,14 +4146,76 @@
 	}));
 
 
-/***/ },
-/* 21 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ }),
+/* 22 */
+/***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	var _ = __webpack_require__(5);
-	var logger = __webpack_require__(11);
+	
+	function itemToPayload(item, options, callback) {
+	  var payloadOptions = options.payload || {};
+	  if (payloadOptions.body) {
+	    delete payloadOptions.body;
+	  }
+	
+	  var data = _.extend(true, {}, item.data, payloadOptions);
+	  if (item._isUncaught) {
+	    data._isUncaught = true;
+	  }
+	  if (item._originalArgs) {
+	    data._originalArgs = item._originalArgs;
+	  }
+	  callback(null, data);
+	}
+	
+	function addTelemetryData(item, options, callback) {
+	  if (item.telemetryEvents) {
+	    _.set(item, 'data.body.telemetry', item.telemetryEvents);
+	  }
+	  callback(null, item);
+	}
+	
+	function addMessageWithError(item, options, callback) {
+	  if (!item.message) {
+	    callback(null, item);
+	    return;
+	  }
+	  var tracePath = 'data.body.trace_chain.0';
+	  var trace = _.get(item, tracePath);
+	  if (!trace) {
+	    tracePath = 'data.body.trace';
+	    trace = _.get(item, tracePath);
+	  }
+	  if (trace) {
+	    if (!(trace.exception && trace.exception.description)) {
+	      _.set(item, tracePath+'.exception.description', item.message);
+	      callback(null, item);
+	      return;
+	    }
+	    var extra = _.get(item, tracePath+'.extra') || {};
+	    var newExtra =  _.extend(true, {}, extra, {message: item.message});
+	    _.set(item, tracePath+'.extra', newExtra);
+	  }
+	  callback(null, item);
+	}
+	
+	module.exports = {
+	  itemToPayload: itemToPayload,
+	  addTelemetryData: addTelemetryData,
+	  addMessageWithError: addMessageWithError
+	};
+
+
+/***/ }),
+/* 23 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	var _ = __webpack_require__(5);
+	var logger = __webpack_require__(12);
 	
 	function checkIgnore(item, settings) {
 	  var level = item.level;
@@ -3916,8 +4248,8 @@
 	  return true;
 	}
 	
-	function urlIsBlacklisted(item, settings) {
-	  return urlIsOnAList(item, settings, 'blacklist');
+	function urlIsNotBlacklisted(item, settings) {
+	  return !urlIsOnAList(item, settings, 'blacklist');
 	}
 	
 	function urlIsWhitelisted(item, settings) {
@@ -3941,10 +4273,10 @@
 	    // These two checks are important to come first as they are defaults
 	    // in case the list is missing or the trace is missing or not well-formed
 	    if (!list || listLength === 0) {
-	      return true;
+	      return !black;
 	    }
 	    if (!trace || !trace.frames) {
-	      return true;
+	      return !black;
 	    }
 	
 	    frameLength = trace.frames.length;
@@ -3953,15 +4285,15 @@
 	      filename = frame.filename;
 	
 	      if (!_.isType(filename, 'string')) {
-	        return true;
+	        return !black;
 	      }
 	
 	      for (j = 0; j < listLength; j++) {
 	        url = list[j];
 	        urlRegex = new RegExp(url);
 	
-	        if (urlRegex.test(filename)){
-	          return !black;
+	        if (urlRegex.test(filename)) {
+	          return true;
 	        }
 	      }
 	    }
@@ -3975,9 +4307,9 @@
 	    }
 	    var listName = black ? 'hostBlackList' : 'hostWhiteList';
 	    logger.error('Error while reading your configuration\'s ' + listName + ' option. Removing custom ' + listName + '.', e);
-	    return true;
+	    return !black;
 	  }
-	  return black;
+	  return false;
 	}
 	
 	function messageIsIgnored(item, settings) {
@@ -4025,12 +4357,616 @@
 	module.exports = {
 	  checkIgnore: checkIgnore,
 	  userCheckIgnore: userCheckIgnore,
-	  urlIsBlacklisted: urlIsBlacklisted,
+	  urlIsNotBlacklisted: urlIsNotBlacklisted,
 	  urlIsWhitelisted: urlIsWhitelisted,
 	  messageIsIgnored: messageIsIgnored
 	};
 	
 
 
-/***/ }
+/***/ }),
+/* 24 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	var _ = __webpack_require__(5);
+	var urlparser = __webpack_require__(17);
+	var domUtil = __webpack_require__(25);
+	
+	var defaults = {
+	  network: true,
+	  log: true,
+	  dom: true,
+	  navigation: true,
+	  connectivity: true
+	};
+	
+	function replace(obj, name, replacement, replacements, type) {
+	  var orig = obj[name];
+	  obj[name] = replacement(orig);
+	  if (replacements) {
+	    replacements[type].push([obj, name, orig]);
+	  }
+	}
+	
+	function restore(replacements, type) {
+	  var b;
+	  while (replacements[type].length) {
+	    b = replacements[type].shift();
+	    b[0][b[1]] = b[2];
+	  }
+	}
+	
+	function Instrumenter(options, telemeter, rollbar, _window, _document) {
+	  var autoInstrument = options.autoInstrument;
+	  if (options.enabled === false || autoInstrument === false) {
+	    this.autoInstrument = {};
+	  } else {
+	    if (!_.isType(autoInstrument, 'object')) {
+	      autoInstrument = defaults;
+	    }
+	    this.autoInstrument = _.extend(true, {}, defaults, autoInstrument);
+	  }
+	  this.scrubTelemetryInputs = !!options.scrubTelemetryInputs;
+	  this.telemetryScrubber = options.telemetryScrubber;
+	  this.telemeter = telemeter;
+	  this.rollbar = rollbar;
+	  this._window = _window || {};
+	  this._document = _document || {};
+	  this.replacements = {
+	    network: [],
+	    log: [],
+	    navigation: [],
+	    connectivity: []
+	  };
+	  this.eventRemovers = {
+	    dom: [],
+	    connectivity: []
+	  };
+	
+	  this._location = this._window.location;
+	  this._lastHref = this._location && this._location.href;
+	}
+	
+	Instrumenter.prototype.configure = function(options) {
+	  var autoInstrument = options.autoInstrument;
+	  var oldSettings = _.extend(true, {}, this.autoInstrument);
+	  if (options.enabled === false || autoInstrument === false) {
+	    this.autoInstrument = {};
+	  } else {
+	    if (!_.isType(autoInstrument, 'object')) {
+	      autoInstrument = defaults;
+	    }
+	    this.autoInstrument = _.extend(true, {}, defaults, autoInstrument);
+	  }
+	  this.instrument(oldSettings);
+	};
+	
+	Instrumenter.prototype.instrument = function(oldSettings) {
+	  if (this.autoInstrument.network && !(oldSettings && oldSettings.network)) {
+	    this.instrumentNetwork();
+	  } else if (!this.autoInstrument.network && oldSettings && oldSettings.network) {
+	    this.deinstrumentNetwork();
+	  }
+	
+	  if (this.autoInstrument.log && !(oldSettings && oldSettings.log)) {
+	    this.instrumentConsole();
+	  } else if (!this.autoInstrument.log && oldSettings && oldSettings.log) {
+	    this.deinstrumentConsole();
+	  }
+	
+	  if (this.autoInstrument.dom && !(oldSettings && oldSettings.dom)) {
+	    this.instrumentDom();
+	  } else if (!this.autoInstrument.dom && oldSettings && oldSettings.dom) {
+	    this.deinstrumentDom();
+	  }
+	
+	  if (this.autoInstrument.navigation && !(oldSettings && oldSettings.navigation)) {
+	    this.instrumentNavigation();
+	  } else if (!this.autoInstrument.navigation && oldSettings && oldSettings.navigation) {
+	    this.deinstrumentNavigation();
+	  }
+	
+	  if (this.autoInstrument.connectivity && !(oldSettings && oldSettings.connectivity)) {
+	    this.instrumentConnectivity();
+	  } else if (!this.autoInstrument.connectivity && oldSettings && oldSettings.connectivity) {
+	    this.deinstrumentConnectivity();
+	  }
+	};
+	
+	Instrumenter.prototype.deinstrumentNetwork = function() {
+	  restore(this.replacements, 'network');
+	};
+	
+	Instrumenter.prototype.instrumentNetwork = function() {
+	  var self = this;
+	
+	  function wrapProp(prop, xhr) {
+	    if (prop in xhr && _.isFunction(xhr[prop])) {
+	      replace(xhr, prop, function(orig) {
+	        return self.rollbar.wrap(orig);
+	      });
+	    }
+	  }
+	
+	  if ('XMLHttpRequest' in this._window) {
+	    var xhrp = this._window.XMLHttpRequest.prototype;
+	    replace(xhrp, 'open', function(orig) {
+	      return function(method, url) {
+	        if (_.isType(url, 'string')) {
+	          this.__rollbar_xhr = {
+	            method: method,
+	            url: url,
+	            status_code: null,
+	            start_time_ms: _.now(),
+	            end_time_ms: null
+	          };
+	        }
+	        return orig.apply(this, arguments);
+	      };
+	    }, this.replacements, 'network');
+	
+	    replace(xhrp, 'send', function(orig) {
+	      /* eslint-disable no-unused-vars */
+	      return function(data) {
+	      /* eslint-enable no-unused-vars */
+	        var xhr = this;
+	
+	        function onreadystatechangeHandler() {
+	          if (xhr.__rollbar_xhr && (xhr.readyState === 1 || xhr.readyState === 4)) {
+	            if (xhr.__rollbar_xhr.status_code === null) {
+	              xhr.__rollbar_xhr.status_code = 0;
+	              xhr.__rollbar_event = self.telemeter.captureNetwork(xhr.__rollbar_xhr, 'xhr');
+	            }
+	            if (xhr.readyState === 1) {
+	              xhr.__rollbar_xhr.start_time_ms = _.now();
+	            } else {
+	              xhr.__rollbar_xhr.end_time_ms = _.now();
+	            }
+	            try {
+	              var code = xhr.status;
+	              code = code === 1223 ? 204 : code;
+	              xhr.__rollbar_xhr.status_code = code;
+	              xhr.__rollbar_event.level = self.telemeter.levelFromStatus(code);
+	            } catch (e) {
+	              /* ignore possible exception from xhr.status */
+	            }
+	          }
+	        }
+	
+	        wrapProp('onload', xhr);
+	        wrapProp('onerror', xhr);
+	        wrapProp('onprogress', xhr);
+	
+	        if ('onreadystatechange' in xhr && _.isFunction(xhr.onreadystatechange)) {
+	          replace(xhr, 'onreadystatechange', function(orig) {
+	            return self.rollbar.wrap(orig, undefined, onreadystatechangeHandler);
+	          });
+	        } else {
+	          xhr.onreadystatechange = onreadystatechangeHandler;
+	        }
+	        return orig.apply(this, arguments);
+	      }
+	    }, this.replacements, 'network');
+	  }
+	
+	  if ('fetch' in this._window) {
+	    replace(this._window, 'fetch', function(orig) {
+	      /* eslint-disable no-unused-vars */
+	      return function(fn, t) {
+	      /* eslint-enable no-unused-vars */
+	        var args = new Array(arguments.length);
+	        for (var i=0, len=args.length; i < len; i++) {
+	          args[i] = arguments[i];
+	        }
+	        var input = args[0];
+	        var method = 'GET';
+	        var url;
+	        if (_.isType(input, 'string')) {
+	          url = input;
+	        } else {
+	          url = input.url;
+	          if (input.method) {
+	            method = input.method;
+	          }
+	        }
+	        if (args[1] && args[1].method) {
+	          method = args[1].method;
+	        }
+	        var metadata = {
+	          method: method,
+	          url: url,
+	          status_code: null,
+	          start_time_ms: _.now(),
+	          end_time_ms: null
+	        };
+	        self.telemeter.captureNetwork(metadata, 'fetch');
+	        return orig.apply(this, args).then(function (resp) {
+	          metadata.end_time_ms = _.now();
+	          metadata.status_code = resp.status;
+	          return resp;
+	        });
+	      };
+	    }, this.replacements, 'network');
+	  }
+	};
+	
+	Instrumenter.prototype.deinstrumentConsole = function() {
+	  if (!('console' in this._window && this._window.console.log)) {
+	    return;
+	  }
+	  var b;
+	  while (this.replacements['log'].length) {
+	    b = this.replacements['log'].shift();
+	    this._window.console[b[0]] = b[1];
+	  }
+	};
+	
+	Instrumenter.prototype.instrumentConsole = function() {
+	  if (!('console' in this._window && this._window.console.log)) {
+	    return;
+	  }
+	
+	  var self = this;
+	  var c = this._window.console;
+	
+	  function wrapConsole(method) {
+	    var orig = c[method];
+	    var origConsole = c;
+	    var level = method === 'warn' ? 'warning' : method;
+	    c[method] = function() {
+	      var args = Array.prototype.slice.call(arguments);
+	      var message = _.formatArgsAsString(args);
+	      self.telemeter.captureLog(message, level);
+	      if (orig) {
+	        Function.prototype.apply.call(orig, origConsole, args);
+	      }
+	    };
+	    self.replacements['log'].push([method, orig]);
+	  }
+	  var methods = ['debug','info','warn','error','log'];
+	  for (var i=0, len=methods.length; i < len; i++) {
+	    wrapConsole(methods[i]);
+	  }
+	};
+	
+	Instrumenter.prototype.deinstrumentDom = function() {
+	  if (!('addEventListener' in this._window || 'attachEvent' in this._window)) {
+	    return;
+	  }
+	  this.removeListeners('dom');
+	};
+	
+	Instrumenter.prototype.instrumentDom = function() {
+	  if (!('addEventListener' in this._window || 'attachEvent' in this._window)) {
+	    return;
+	  }
+	  var clickHandler = this.handleClick.bind(this);
+	  var blurHandler = this.handleBlur.bind(this);
+	  this.addListener('dom', this._window, 'click', 'onclick', clickHandler, true);
+	  this.addListener('dom', this._window, 'blur', 'onfocusout', blurHandler, true);
+	};
+	
+	Instrumenter.prototype.handleClick = function(evt) {
+	  try {
+	    var e = domUtil.getElementFromEvent(evt, this._document);
+	    var hasTag = e && e.tagName;
+	    var anchorOrButton = domUtil.isDescribedElement(e, 'a') || domUtil.isDescribedElement(e, 'button');
+	    if (hasTag && (anchorOrButton || domUtil.isDescribedElement(e, 'input', ['button', 'submit']))) {
+	        this.captureDomEvent('click', e);
+	    } else if (domUtil.isDescribedElement(e, 'input', ['checkbox', 'radio'])) {
+	      this.captureDomEvent('input', e, e.value, e.checked);
+	    }
+	  } catch (exc) {
+	    // TODO: Not sure what to do here
+	  }
+	};
+	
+	Instrumenter.prototype.handleBlur = function(evt) {
+	  try {
+	    var e = domUtil.getElementFromEvent(evt, this._document);
+	    if (e && e.tagName) {
+	      if (domUtil.isDescribedElement(e, 'textarea')) {
+	        this.captureDomEvent('input', e, e.value);
+	      } else if (domUtil.isDescribedElement(e, 'select') && e.options && e.options.length) {
+	        this.handleSelectInputChanged(e);
+	      } else if (domUtil.isDescribedElement(e, 'input') && !domUtil.isDescribedElement(e, 'input', ['button', 'submit', 'hidden', 'checkbox', 'radio'])) {
+	        this.captureDomEvent('input', e, e.value);
+	      }
+	    }
+	  } catch (exc) {
+	    // TODO: Not sure what to do here
+	  }
+	};
+	
+	Instrumenter.prototype.handleSelectInputChanged = function(elem) {
+	  if (elem.multiple) {
+	    for (var i = 0; i < elem.options.length; i++) {
+	      if (elem.options[i].selected) {
+	        this.captureDomEvent('input', elem, elem.options[i].value);
+	      }
+	    }
+	  } else if (elem.selectedIndex >= 0 && elem.options[elem.selectedIndex]) {
+	    this.captureDomEvent('input', elem, elem.options[elem.selectedIndex].value);
+	  }
+	};
+	
+	Instrumenter.prototype.captureDomEvent = function(subtype, element, value, isChecked) {
+	  if (value !== undefined) {
+	    if (this.scrubTelemetryInputs || (domUtil.getElementType(element) === 'password')) {
+	      value = '[scrubbed]';
+	    } else if (this.telemetryScrubber) {
+	      var description = domUtil.describeElement(element);
+	      if (this.telemetryScrubber(description)) {
+	        value = '[scrubbed]';
+	      }
+	    }
+	  }
+	  var elementString = domUtil.elementArrayToString(domUtil.treeToArray(element));
+	  this.telemeter.captureDom(subtype, elementString, value, isChecked);
+	};
+	
+	Instrumenter.prototype.deinstrumentNavigation = function() {
+	  var chrome = this._window.chrome;
+	  var chromePackagedApp = chrome && chrome.app && chrome.app.runtime;
+	  // See https://github.com/angular/angular.js/pull/13945/files
+	  var hasPushState = !chromePackagedApp && this._window.history && this._window.history.pushState;
+	  if (!hasPushState) {
+	    return;
+	  }
+	  restore(this.replacements, 'navigation');
+	};
+	
+	Instrumenter.prototype.instrumentNavigation = function() {
+	  var chrome = this._window.chrome;
+	  var chromePackagedApp = chrome && chrome.app && chrome.app.runtime;
+	  // See https://github.com/angular/angular.js/pull/13945/files
+	  var hasPushState = !chromePackagedApp && this._window.history && this._window.history.pushState;
+	  if (!hasPushState) {
+	    return;
+	  }
+	  var self = this;
+	  replace(this._window, 'onpopstate', function(orig) {
+	    return function() {
+	      var current = self._location.href;
+	      self.handleUrlChange(self._lastHref, current);
+	      if (orig) {
+	        orig.apply(this, arguments);
+	      }
+	    };
+	  }, this.replacements, 'navigation');
+	
+	  replace(this._window.history, 'pushState', function(orig) {
+	    return function() {
+	      var url = arguments.length > 2 ? arguments[2] : undefined;
+	      if (url) {
+	        self.handleUrlChange(self._lastHref, url + '');
+	      }
+	      return orig.apply(this, arguments);
+	    };
+	  }, this.replacements, 'navigation');
+	};
+	
+	Instrumenter.prototype.handleUrlChange = function(from, to) {
+	  var parsedHref = urlparser.parse(this._location.href);
+	  var parsedTo = urlparser.parse(to);
+	  var parsedFrom = urlparser.parse(from);
+	  this._lastHref = to;
+	  if (parsedHref.protocol === parsedTo.protocol && parsedHref.host === parsedTo.host) {
+	    to = parsedTo.path + (parsedTo.hash || '');
+	  }
+	  if (parsedHref.protocol === parsedFrom.protocol && parsedHref.host === parsedFrom.host) {
+	    from = parsedFrom.path + (parsedFrom.hash || '');
+	  }
+	  this.telemeter.captureNavigation(from, to);
+	};
+	
+	Instrumenter.prototype.deinstrumentConnectivity = function() {
+	  if (!('addEventListener' in this._window || 'body' in this._document)) {
+	    return;
+	  }
+	  if (this._window.addEventListener) {
+	    this.removeListeners('connectivity');
+	  } else {
+	    restore(this.replacements, 'connectivity');
+	  }
+	};
+	
+	Instrumenter.prototype.instrumentConnectivity = function() {
+	  if (!('addEventListener' in this._window || 'body' in this._document)) {
+	    return;
+	  }
+	  if (this._window.addEventListener) {
+	    this.addListener('connectivity', this._window, 'online', undefined, function() {
+	      this.telemeter.captureConnectivityChange('online');
+	    }.bind(this), true);
+	    this.addListener('connectivity', this._window, 'offline', undefined, function() {
+	      this.telemeter.captureConnectivityChange('offline');
+	    }.bind(this), true);
+	  } else {
+	    var self = this;
+	    replace(this._document.body, 'ononline', function(orig) {
+	      return function() {
+	        self.telemeter.captureConnectivityChange('online');
+	        if (orig) {
+	          orig.apply(this, arguments);
+	        }
+	      }
+	    }, this.replacements, 'connectivity');
+	    replace(this._document.body, 'onoffline', function(orig) {
+	      return function() {
+	        self.telemeter.captureConnectivityChange('offline');
+	        if (orig) {
+	          orig.apply(this, arguments);
+	        }
+	      }
+	    }, this.replacements, 'connectivity');
+	  }
+	};
+	
+	Instrumenter.prototype.addListener = function(section, obj, type, altType, handler, capture) {
+	  if (obj.addEventListener) {
+	    obj.addEventListener(type, handler, capture);
+	    this.eventRemovers[section].push(function() {
+	      obj.removeEventListener(type, handler, capture);
+	    });
+	  } else if (altType) {
+	    obj.attachEvent(altType, handler);
+	    this.eventRemovers[section].push(function() {
+	      obj.detachEvent(altType, handler);
+	    });
+	  }
+	};
+	
+	Instrumenter.prototype.removeListeners = function(section) {
+	  var r;
+	  while (this.eventRemovers[section].length) {
+	    r = this.eventRemovers[section].shift();
+	    r();
+	  }
+	};
+	
+	module.exports = Instrumenter;
+
+
+/***/ }),
+/* 25 */
+/***/ (function(module, exports) {
+
+	'use strict';
+	
+	function getElementType(e) {
+	  return (e.getAttribute('type') || '').toLowerCase();
+	}
+	
+	function isDescribedElement(element, type, subtypes) {
+	  if (element.tagName.toLowerCase() !== type.toLowerCase()) {
+	    return false;
+	  }
+	  if (!subtypes) {
+	    return true;
+	  }
+	  element = getElementType(element);
+	  for (var i = 0; i < subtypes.length; i++) {
+	    if (subtypes[i] === element) {
+	      return true;
+	    }
+	  }
+	  return false;
+	}
+	
+	function getElementFromEvent(evt, doc) {
+	  if (evt.target) {
+	    return evt.target;
+	  }
+	  if (doc && doc.elementFromPoint) {
+	    return doc.elementFromPoint(evt.clientX, evt.clientY);
+	  }
+	  return undefined;
+	}
+	
+	function treeToArray(elem) {
+	  var MAX_HEIGHT = 5;
+	  var out = [];
+	  var nextDescription;
+	  for (var height = 0; elem && height < MAX_HEIGHT; height++) {
+	    nextDescription = describeElement(elem);
+	    if (nextDescription.tagName === 'html') {
+	      break;
+	    }
+	    out.unshift(nextDescription);
+	    elem = elem.parentNode;
+	  }
+	  return out;
+	}
+	
+	function elementArrayToString(a) {
+	  var MAX_LENGTH = 80;
+	  var separator = ' > ', separatorLength = separator.length;
+	  var out = [], len = 0, nextStr, totalLength;
+	
+	  for (var i = a.length - 1; i >= 0; i--) {
+	    nextStr = descriptionToString(a[i]);
+	    totalLength = len + (out.length * separatorLength) + nextStr.length;
+	    if (i < a.length - 1 && totalLength >= MAX_LENGTH + 3) {
+	      out.unshift('...');
+	      break;
+	    }
+	    out.unshift(nextStr);
+	    len += nextStr.length;
+	  }
+	  return out.join(separator);
+	}
+	
+	function descriptionToString(desc) {
+	  if (!desc || !desc.tagName) {
+	    return '';
+	  }
+	  var out = [desc.tagName];
+	  if (desc.id) {
+	    out.push('#' + desc.id);
+	  }
+	  if (desc.classes) {
+	    out.push('.' + desc.classes.join('.'));
+	  }
+	  for (var i = 0; i < desc.attributes.length; i++) {
+	    out.push('[' + desc.attributes[i].key + '="' + desc.attributes[i].value + '"]');
+	  }
+	
+	  return out.join('');
+	}
+	
+	/**
+	 * Input: a dom element
+	 * Output: null if tagName is falsey or input is falsey, else
+	 *  {
+	 *    tagName: String,
+	 *    id: String | undefined,
+	 *    classes: [String] | undefined,
+	 *    attributes: [
+	 *      {
+	 *        key: OneOf(type, name, title, alt),
+	 *        value: String
+	 *      }
+	 *    ]
+	 *  }
+	 */
+	function describeElement(elem) {
+	  if (!elem || !elem.tagName) {
+	    return null;
+	  }
+	  var out = {}, className, key, attr, i;
+	  out.tagName = elem.tagName.toLowerCase();
+	  if (elem.id) {
+	    out.id = elem.id;
+	  }
+	  className = elem.className;
+	  if (className && (typeof className === 'string')) {
+	    out.classes = className.split(/\s+/);
+	  }
+	  var attributes = ['type', 'name', 'title', 'alt'];
+	  out.attributes = [];
+	  for (i = 0; i < attributes.length; i++) {
+	    key = attributes[i];
+	    attr = elem.getAttribute(key);
+	    if (attr) {
+	      out.attributes.push({key: key, value: attr});
+	    }
+	  }
+	  return out;
+	}
+	
+	module.exports = {
+	  describeElement: describeElement,
+	  descriptionToString: descriptionToString,
+	  elementArrayToString: elementArrayToString,
+	  treeToArray: treeToArray,
+	  getElementFromEvent: getElementFromEvent,
+	  isDescribedElement: isDescribedElement,
+	  getElementType: getElementType
+	};
+
+
+/***/ })
 /******/ ]);

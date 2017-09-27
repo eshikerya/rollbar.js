@@ -211,7 +211,7 @@ describe('urlIsWhitelisted', function() {
   });
 });
 
-describe('urlIsBlacklisted', function() {
+describe('urlIsNotBlacklisted', function() {
   it('should return true with no blacklist', function() {
     var item = {
       level: 'critical',
@@ -224,7 +224,7 @@ describe('urlIsBlacklisted', function() {
     var settings = {
       reportLevel: 'debug'
     };
-    expect(p.urlIsBlacklisted(item, settings)).to.be.ok();
+    expect(p.urlIsNotBlacklisted(item, settings)).to.be.ok();
   });
   it('should return true with no trace', function() {
     var item = {
@@ -235,7 +235,7 @@ describe('urlIsBlacklisted', function() {
       reportLevel: 'debug',
       hostBlackList: ['fake.com', 'other.com']
     };
-    expect(p.urlIsBlacklisted(item, settings)).to.be.ok();
+    expect(p.urlIsNotBlacklisted(item, settings)).to.be.ok();
   });
   it('should return false if any regex matches at least one filename in the trace', function() {
     var item = {
@@ -250,7 +250,7 @@ describe('urlIsBlacklisted', function() {
       reportLevel: 'debug',
       hostBlackList: ['example.com', 'other.com']
     };
-    expect(p.urlIsBlacklisted(item, settings)).to.not.be.ok();
+    expect(p.urlIsNotBlacklisted(item, settings)).to.not.be.ok();
   });
   it('should return true if the filename is not a string', function() {
     var item = {
@@ -265,7 +265,7 @@ describe('urlIsBlacklisted', function() {
       reportLevel: 'debug',
       hostBlackList: ['example.com', 'other.com']
     };
-    expect(p.urlIsBlacklisted(item, settings)).to.be.ok();
+    expect(p.urlIsNotBlacklisted(item, settings)).to.be.ok();
   });
   it('should return true if there is no frames key', function() {
     var item = {
@@ -276,7 +276,7 @@ describe('urlIsBlacklisted', function() {
       reportLevel: 'debug',
       hostBlackList: ['nope.com']
     };
-    expect(p.urlIsBlacklisted(item, settings)).to.be.ok();
+    expect(p.urlIsNotBlacklisted(item, settings)).to.be.ok();
   });
   it('should return true if there are no frames', function() {
     var item = {
@@ -287,7 +287,7 @@ describe('urlIsBlacklisted', function() {
       reportLevel: 'debug',
       hostBlackList: ['nope.com']
     };
-    expect(p.urlIsBlacklisted(item, settings)).to.be.ok();
+    expect(p.urlIsNotBlacklisted(item, settings)).to.be.ok();
   });
   it('should return true if nothing in the blacklist matches', function() {
     var item = {
@@ -302,7 +302,7 @@ describe('urlIsBlacklisted', function() {
       reportLevel: 'debug',
       hostBlackList: ['baz\.com', 'foo\.com']
     };
-    expect(p.urlIsBlacklisted(item, settings)).to.be.ok();
+    expect(p.urlIsNotBlacklisted(item, settings)).to.be.ok();
   });
 });
 

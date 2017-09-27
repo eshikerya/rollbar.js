@@ -12,6 +12,7 @@ var urllib = require('url');
 var jsonBackup = require('json-stringify-safe');
 
 var transforms = require('./transforms');
+var sharedTransforms = require('../transforms');
 var predicates = require('./predicates');
 
 function Rollbar(options, client) {
@@ -25,16 +26,19 @@ function Rollbar(options, client) {
     delete options.minimumLevel;
   }
   this.options = _.extend(true, {}, Rollbar.defaultOptions, options);
+  // On the server we want to ignore any maxItems setting
+  delete this.options.maxItems;
   this.options.environment = this.options.environment || 'unspecified';
+  this.lambdaContext = null;
   var api = new API(this.options, transport, urllib, jsonBackup);
   this.client = client || new Client(this.options, api, logger, 'server');
   addTransformsToNotifier(this.client.notifier);
   addPredicatesToQueue(this.client.queue);
 
-  if (this.options.handleUncaughtExceptions) {
+  if (this.options.captureUncaught || this.options.handleUncaughtExceptions) {
     this.handleUncaughtExceptions();
   }
-  if (this.options.handleUnhandledRejections) {
+  if (this.options.captureUnhandledRejections || this.options.handleUnhandledRejections) {
     this.handleUnhandledRejections();
   }
 }
@@ -57,6 +61,9 @@ function handleUninitialized(maybeCallback) {
 }
 
 Rollbar.prototype.global = function(options) {
+  options = _.extend(true, {}, options);
+  // On the server we want to ignore any maxItems setting
+  delete options.maxItems;
   this.client.global(options);
   return this;
 };
@@ -68,15 +75,21 @@ Rollbar.global = function(options) {
   }
 };
 
-Rollbar.prototype.configure = function(options) {
+Rollbar.prototype.configure = function(options, payloadData) {
   var oldOptions = this.options;
-  this.options = _.extend(true, {}, oldOptions, options);
-  this.client.configure(options);
+  var payload = {};
+  if (payloadData) {
+    payload = {payload: payloadData};
+  }
+  this.options = _.extend(true, {}, oldOptions, options, payload);
+  // On the server we want to ignore any maxItems setting
+  delete this.options.maxItems;
+  this.client.configure(options, payloadData);
   return this;
 };
-Rollbar.configure = function(options) {
+Rollbar.configure = function(options, payloadData) {
   if (_instance) {
-    return _instance.configure(options);
+    return _instance.configure(options, payloadData);
   } else {
     handleUninitialized();
   }
@@ -220,7 +233,6 @@ Rollbar.wait = function(callback) {
   }
 };
 
-
 Rollbar.prototype.errorHandler = function() {
   return function(err, request, response, next) {
     var cb = function(rollbarError) {
@@ -247,6 +259,35 @@ Rollbar.errorHandler = function() {
   }
 };
 
+Rollbar.prototype.lambdaHandler = function(handler) {
+  var self = this;
+  return function(event, context, callback) {
+    self.lambdaContext = context;
+    try {
+      return handler(event, context, function(err, resp) {
+        if (err) {
+          self.error(err);
+        }
+        self.wait(function() {
+          callback(err, resp);
+        });
+      });
+    } catch (err) {
+      self.error(err);
+      self.wait(function() {
+        throw err;
+      });
+    }
+  };
+};
+Rollbar.lambdaHandler = function(handler) {
+  if (_instance) {
+    return _instance.lambdaHandler(handler);
+  } else {
+    handleUninitialized();
+  }
+};
+
 function wrapCallback(r, f) {
   return function() {
     var err = arguments[0];
@@ -268,6 +309,16 @@ Rollbar.wrapCallback = function(f) {
   }
 };
 
+Rollbar.prototype.captureEvent = function(metadata, level) {
+  return this.client.captureEvent(metadata, level);
+};
+Rollbar.captureEvent = function(metadata, level) {
+  if (_instance) {
+    return _instance.captureEvent(metadata, level);
+  } else {
+    handleUninitialized();
+  }
+};
 
 /** DEPRECATED **/
 
@@ -362,9 +413,12 @@ function addTransformsToNotifier(notifier) {
     .addTransform(transforms.baseData)
     .addTransform(transforms.handleItemWithError)
     .addTransform(transforms.addBody)
+    .addTransform(sharedTransforms.addMessageWithError)
+    .addTransform(sharedTransforms.addTelemetryData)
     .addTransform(transforms.addRequestData)
+    .addTransform(transforms.addLambdaData)
     .addTransform(transforms.scrubPayload)
-    .addTransform(transforms.convertToPayload);
+    .addTransform(sharedTransforms.itemToPayload);
 }
 
 function addPredicatesToQueue(queue) {
@@ -375,7 +429,7 @@ function addPredicatesToQueue(queue) {
 
 Rollbar.prototype._createItem = function(args) {
   var requestKeys = ['headers', 'protocol', 'url', 'method', 'body', 'route'];
-  return _.createItem(args, logger, this, requestKeys);
+  return _.createItem(args, logger, this, requestKeys, this.lambdaContext);
 };
 
 function _getFirstFunction(args) {
@@ -397,11 +451,14 @@ Rollbar.prototype.handleUncaughtExceptions = function() {
         logger.error('Encountered error while handling an uncaught exception.');
         logger.error(err);
       }
-
-      if (exitOnUncaught) {
-        process.exit(1);
-      }
     });
+    if (exitOnUncaught) {
+      setImmediate(function() {
+        this.wait(function() {
+          process.exit(1);
+        });
+      }.bind(this));
+    }
   }.bind(this));
 };
 

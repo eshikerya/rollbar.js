@@ -1,4 +1,4 @@
-# Rollbar notifier for JavaScript [![Build Status](https://api.travis-ci.org/rollbar/rollbar.js.png?branch=v2.1.0)](https://travis-ci.org/rollbar/rollbar.js)
+# Rollbar notifier for JavaScript [![Build Status](https://api.travis-ci.org/rollbar/rollbar.js.png?branch=v2.2.8)](https://travis-ci.org/rollbar/rollbar.js)
 
 <!-- Sub:[TOC] -->
 
@@ -22,7 +22,7 @@ var _rollbarConfig = {
     }
 };
 // Rollbar Snippet
-!function(r){function o(e){if(n[e])return n[e].exports;var t=n[e]={exports:{},id:e,loaded:!1};return r[e].call(t.exports,t,t.exports,o),t.loaded=!0,t.exports}var n={};return o.m=r,o.c=n,o.p="",o(0)}([function(r,o,n){"use strict";var e=n(1),t=n(4);_rollbarConfig=_rollbarConfig||{},_rollbarConfig.rollbarJsUrl=_rollbarConfig.rollbarJsUrl||"https://cdnjs.cloudflare.com/ajax/libs/rollbar.js/2.1.0/rollbar.min.js",_rollbarConfig.async=void 0===_rollbarConfig.async||_rollbarConfig.async;var a=e.setupShim(window,_rollbarConfig),l=t(_rollbarConfig);window.rollbar=e.Rollbar,a.loadFull(window,document,!_rollbarConfig.async,_rollbarConfig,l)},function(r,o,n){"use strict";function e(r){return function(){try{return r.apply(this,arguments)}catch(r){try{console.error("[Rollbar]: Internal error",r)}catch(r){}}}}function t(r,o){this.options=r,this._rollbarOldOnError=null;var n=s++;this.shimId=function(){return n},window&&window._rollbarShims&&(window._rollbarShims[n]={handler:o,messages:[]})}function a(r,o){var n=o.globalAlias||"Rollbar";if("object"==typeof r[n])return r[n];r._rollbarShims={},r._rollbarWrappedError=null;var t=new d(o);return e(function(){return o.captureUncaught&&(t._rollbarOldOnError=r.onerror,i.captureUncaughtExceptions(r,t,!0),i.wrapGlobals(r,t,!0)),o.captureUnhandledRejections&&i.captureUnhandledRejections(r,t,!0),r[n]=t,t})()}function l(r){return e(function(){var o=this,n=Array.prototype.slice.call(arguments,0),e={shim:o,method:r,args:n,ts:new Date};window._rollbarShims[this.shimId()].messages.push(e)})}var i=n(2),s=0,c=n(3),p=function(r,o){return new t(r,o)},d=c.bind(null,p);t.prototype.loadFull=function(r,o,n,t,a){var l=function(){var o;if(void 0===r._rollbarDidLoad){o=new Error("rollbar.js did not load");for(var n,e,t,l,i=0;n=r._rollbarShims[i++];)for(n=n.messages||[];e=n.shift();)for(t=e.args||[],i=0;i<t.length;++i)if(l=t[i],"function"==typeof l){l(o);break}}"function"==typeof a&&a(o)},i=!1,s=o.createElement("script"),c=o.getElementsByTagName("script")[0],p=c.parentNode;s.crossOrigin="",s.src=t.rollbarJsUrl,n||(s.async=!0),s.onload=s.onreadystatechange=e(function(){if(!(i||this.readyState&&"loaded"!==this.readyState&&"complete"!==this.readyState)){s.onload=s.onreadystatechange=null;try{p.removeChild(s)}catch(r){}i=!0,l()}}),p.insertBefore(s,c)},t.prototype.wrap=function(r,o){try{var n;if(n="function"==typeof o?o:function(){return o||{}},"function"!=typeof r)return r;if(r._isWrap)return r;if(!r._wrapped&&(r._wrapped=function(){try{return r.apply(this,arguments)}catch(e){var o=e;throw"string"==typeof o&&(o=new String(o)),o._rollbarContext=n()||{},o._rollbarContext._wrappedSource=r.toString(),window._rollbarWrappedError=o,o}},r._wrapped._isWrap=!0,r.hasOwnProperty))for(var e in r)r.hasOwnProperty(e)&&(r._wrapped[e]=r[e]);return r._wrapped}catch(o){return r}};for(var u="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection".split(","),f=0;f<u.length;++f)t.prototype[u[f]]=l(u[f]);r.exports={setupShim:a,Rollbar:d}},function(r,o){"use strict";function n(r,o,n){if(r){var t;"function"==typeof o._rollbarOldOnError?t=o._rollbarOldOnError:r.onerror&&!r.onerror.belongsToShim&&(t=r.onerror,o._rollbarOldOnError=t);var a=function(){var n=Array.prototype.slice.call(arguments,0);e(r,o,t,n)};a.belongsToShim=n,r.onerror=a}}function e(r,o,n,e){r._rollbarWrappedError&&(e[4]||(e[4]=r._rollbarWrappedError),e[5]||(e[5]=r._rollbarWrappedError._rollbarContext),r._rollbarWrappedError=null),o.handleUncaughtException.apply(o,e),n&&n.apply(r,e)}function t(r,o,n){if(r){"function"==typeof r._rollbarURH&&r._rollbarURH.belongsToShim&&r.removeEventListener("unhandledrejection",r._rollbarURH);var e=function(r){var n=r.reason,e=r.promise,t=r.detail;!n&&t&&(n=t.reason,e=t.promise),o&&o.handleUnhandledRejection&&o.handleUnhandledRejection(n,e)};e.belongsToShim=n,r._rollbarURH=e,r.addEventListener("unhandledrejection",e)}}function a(r,o,n){if(r){var e,t,a="EventTarget,Window,Node,ApplicationCache,AudioTrackList,ChannelMergerNode,CryptoOperation,EventSource,FileReader,HTMLUnknownElement,IDBDatabase,IDBRequest,IDBTransaction,KeyOperation,MediaController,MessagePort,ModalWindow,Notification,SVGElementInstance,Screen,TextTrack,TextTrackCue,TextTrackList,WebSocket,WebSocketWorker,Worker,XMLHttpRequest,XMLHttpRequestEventTarget,XMLHttpRequestUpload".split(",");for(e=0;e<a.length;++e)t=a[e],r[t]&&r[t].prototype&&l(o,r[t].prototype,n)}}function l(r,o,n){if(o.hasOwnProperty&&o.hasOwnProperty("addEventListener")){for(var e=o.addEventListener;e._rollbarOldAdd&&e.belongsToShim;)e=e._rollbarOldAdd;var t=function(o,n,t){e.call(this,o,r.wrap(n),t)};t._rollbarOldAdd=e,t.belongsToShim=n,o.addEventListener=t;for(var a=o.removeEventListener;a._rollbarOldRemove&&a.belongsToShim;)a=a._rollbarOldRemove;var l=function(r,o,n){a.call(this,r,o&&o._wrapped||o,n)};l._rollbarOldRemove=a,l.belongsToShim=n,o.removeEventListener=l}}r.exports={captureUncaughtExceptions:n,captureUnhandledRejections:t,wrapGlobals:a}},function(r,o){"use strict";function n(r,o){this.impl=r(o,this),this.options=o,e(n.prototype)}function e(r){for(var o=function(r){return function(){var o=Array.prototype.slice.call(arguments,0);if(this.impl[r])return this.impl[r].apply(this.impl,o)}},n="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,_createItem,wrap,loadFull,shimId".split(","),e=0;e<n.length;e++)r[n[e]]=o(n[e])}n.prototype._swapAndProcessMessages=function(r,o){this.impl=r(this.options);for(var n,e,t;n=o.shift();)e=n.method,t=n.args,this[e]&&"function"==typeof this[e]&&this[e].apply(this,t);return this},r.exports=n},function(r,o){"use strict";r.exports=function(r){return function(o){if(!o&&!window._rollbarInitialized){r=r||{};for(var n,e,t=r.globalAlias||"Rollbar",a=window.rollbar,l=function(r){return new a(r)},i=0;n=window._rollbarShims[i++];)e||(e=n.handler),n.handler._swapAndProcessMessages(l,n.messages);window[t]=e,window._rollbarInitialized=!0}}}}]);
+!function(r){function o(n){if(e[n])return e[n].exports;var t=e[n]={exports:{},id:n,loaded:!1};return r[n].call(t.exports,t,t.exports,o),t.loaded=!0,t.exports}var e={};return o.m=r,o.c=e,o.p="",o(0)}([function(r,o,e){"use strict";var n=e(1),t=e(4);_rollbarConfig=_rollbarConfig||{},_rollbarConfig.rollbarJsUrl=_rollbarConfig.rollbarJsUrl||"https://cdnjs.cloudflare.com/ajax/libs/rollbar.js/2.2.8/rollbar.min.js",_rollbarConfig.async=void 0===_rollbarConfig.async||_rollbarConfig.async;var a=n.setupShim(window,_rollbarConfig),l=t(_rollbarConfig);window.rollbar=n.Rollbar,a.loadFull(window,document,!_rollbarConfig.async,_rollbarConfig,l)},function(r,o,e){"use strict";function n(r){return function(){try{return r.apply(this,arguments)}catch(r){try{console.error("[Rollbar]: Internal error",r)}catch(r){}}}}function t(r,o){this.options=r,this._rollbarOldOnError=null;var e=s++;this.shimId=function(){return e},window&&window._rollbarShims&&(window._rollbarShims[e]={handler:o,messages:[]})}function a(r,o){var e=o.globalAlias||"Rollbar";if("object"==typeof r[e])return r[e];r._rollbarShims={},r._rollbarWrappedError=null;var t=new p(o);return n(function(){o.captureUncaught&&(t._rollbarOldOnError=r.onerror,i.captureUncaughtExceptions(r,t,!0),i.wrapGlobals(r,t,!0)),o.captureUnhandledRejections&&i.captureUnhandledRejections(r,t,!0);var n=o.autoInstrument;return o.enabled!==!1&&(void 0===n||n===!0||"object"==typeof n&&n.network)&&r.addEventListener&&(r.addEventListener("load",t.captureLoad.bind(t)),r.addEventListener("DOMContentLoaded",t.captureDomContentLoaded.bind(t))),r[e]=t,t})()}function l(r){return n(function(){var o=this,e=Array.prototype.slice.call(arguments,0),n={shim:o,method:r,args:e,ts:new Date};window._rollbarShims[this.shimId()].messages.push(n)})}var i=e(2),s=0,d=e(3),c=function(r,o){return new t(r,o)},p=d.bind(null,c);t.prototype.loadFull=function(r,o,e,t,a){var l=function(){var o;if(void 0===r._rollbarDidLoad){o=new Error("rollbar.js did not load");for(var e,n,t,l,i=0;e=r._rollbarShims[i++];)for(e=e.messages||[];n=e.shift();)for(t=n.args||[],i=0;i<t.length;++i)if(l=t[i],"function"==typeof l){l(o);break}}"function"==typeof a&&a(o)},i=!1,s=o.createElement("script"),d=o.getElementsByTagName("script")[0],c=d.parentNode;s.crossOrigin="",s.src=t.rollbarJsUrl,e||(s.async=!0),s.onload=s.onreadystatechange=n(function(){if(!(i||this.readyState&&"loaded"!==this.readyState&&"complete"!==this.readyState)){s.onload=s.onreadystatechange=null;try{c.removeChild(s)}catch(r){}i=!0,l()}}),c.insertBefore(s,d)},t.prototype.wrap=function(r,o,e){try{var n;if(n="function"==typeof o?o:function(){return o||{}},"function"!=typeof r)return r;if(r._isWrap)return r;if(!r._rollbar_wrapped&&(r._rollbar_wrapped=function(){e&&"function"==typeof e&&e.apply(this,arguments);try{return r.apply(this,arguments)}catch(e){var o=e;throw"string"==typeof o&&(o=new String(o)),o._rollbarContext=n()||{},o._rollbarContext._wrappedSource=r.toString(),window._rollbarWrappedError=o,o}},r._rollbar_wrapped._isWrap=!0,r.hasOwnProperty))for(var t in r)r.hasOwnProperty(t)&&(r._rollbar_wrapped[t]=r[t]);return r._rollbar_wrapped}catch(o){return r}};for(var u="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,captureDomContentLoaded,captureLoad".split(","),f=0;f<u.length;++f)t.prototype[u[f]]=l(u[f]);r.exports={setupShim:a,Rollbar:p}},function(r,o){"use strict";function e(r,o,e){if(r){var t;"function"==typeof o._rollbarOldOnError?t=o._rollbarOldOnError:r.onerror&&!r.onerror.belongsToShim&&(t=r.onerror,o._rollbarOldOnError=t);var a=function(){var e=Array.prototype.slice.call(arguments,0);n(r,o,t,e)};a.belongsToShim=e,r.onerror=a}}function n(r,o,e,n){r._rollbarWrappedError&&(n[4]||(n[4]=r._rollbarWrappedError),n[5]||(n[5]=r._rollbarWrappedError._rollbarContext),r._rollbarWrappedError=null),o.handleUncaughtException.apply(o,n),e&&e.apply(r,n)}function t(r,o,e){if(r){"function"==typeof r._rollbarURH&&r._rollbarURH.belongsToShim&&r.removeEventListener("unhandledrejection",r._rollbarURH);var n=function(r){var e=r.reason,n=r.promise,t=r.detail;!e&&t&&(e=t.reason,n=t.promise),o&&o.handleUnhandledRejection&&o.handleUnhandledRejection(e,n)};n.belongsToShim=e,r._rollbarURH=n,r.addEventListener("unhandledrejection",n)}}function a(r,o,e){if(r){var n,t,a="EventTarget,Window,Node,ApplicationCache,AudioTrackList,ChannelMergerNode,CryptoOperation,EventSource,FileReader,HTMLUnknownElement,IDBDatabase,IDBRequest,IDBTransaction,KeyOperation,MediaController,MessagePort,ModalWindow,Notification,SVGElementInstance,Screen,TextTrack,TextTrackCue,TextTrackList,WebSocket,WebSocketWorker,Worker,XMLHttpRequest,XMLHttpRequestEventTarget,XMLHttpRequestUpload".split(",");for(n=0;n<a.length;++n)t=a[n],r[t]&&r[t].prototype&&l(o,r[t].prototype,e)}}function l(r,o,e){if(o.hasOwnProperty&&o.hasOwnProperty("addEventListener")){for(var n=o.addEventListener;n._rollbarOldAdd&&n.belongsToShim;)n=n._rollbarOldAdd;var t=function(o,e,t){n.call(this,o,r.wrap(e),t)};t._rollbarOldAdd=n,t.belongsToShim=e,o.addEventListener=t;for(var a=o.removeEventListener;a._rollbarOldRemove&&a.belongsToShim;)a=a._rollbarOldRemove;var l=function(r,o,e){a.call(this,r,o&&o._rollbar_wrapped||o,e)};l._rollbarOldRemove=a,l.belongsToShim=e,o.removeEventListener=l}}r.exports={captureUncaughtExceptions:e,captureUnhandledRejections:t,wrapGlobals:a}},function(r,o){"use strict";function e(r,o){this.impl=r(o,this),this.options=o,n(e.prototype)}function n(r){for(var o=function(r){return function(){var o=Array.prototype.slice.call(arguments,0);if(this.impl[r])return this.impl[r].apply(this.impl,o)}},e="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,_createItem,wrap,loadFull,shimId,captureDomContentLoaded,captureLoad".split(","),n=0;n<e.length;n++)r[e[n]]=o(e[n])}e.prototype._swapAndProcessMessages=function(r,o){this.impl=r(this.options);for(var e,n,t;e=o.shift();)n=e.method,t=e.args,this[n]&&"function"==typeof this[n]&&("captureDomContentLoaded"===n||"captureLoad"===n?this[n].apply(this,[t[0],e.ts]):this[n].apply(this,t));return this},r.exports=e},function(r,o){"use strict";r.exports=function(r){return function(o){if(!o&&!window._rollbarInitialized){r=r||{};for(var e,n,t=r.globalAlias||"Rollbar",a=window.rollbar,l=function(r){return new a(r)},i=0;e=window._rollbarShims[i++];)n||(n=e.handler),e.handler._swapAndProcessMessages(l,e.messages);window[t]=n,window._rollbarInitialized=!0}}}}]);
 // End Rollbar Snippet
 </script>
 ```
@@ -93,6 +93,64 @@ them in the configuration under the payload key:
 Rollbar.configure({payload: {fingerprint: "custom fingerprint to override grouping algorithm"}}).error(err);
 ```
 
+For convenience, the configure method also accepts a second parameter of data to be
+automatically nested under the paylaod key, for example:
+
+```js
+Rollbar.configure({enabled: true, payload: {somekey: 'somevalue'}}, {fingerprint: 'abc123'})
+```
+
+is equivalent to
+
+```js
+Rollbar.configure({enabled: true, payload: {somekey: 'somevalue', fingerprint: 'abc123'}})
+```
+
+Moreover, the values in the second parameter take precedence over any which have a duplicate key
+nested under the payload key in the first parameter. For example,
+
+```js
+Rollbar.configure(
+  {
+    enabled: true,
+    payload: {
+      a: 'b',
+      somekey: 'somevalue'
+    }
+  },
+  {
+    somekey: 'other',
+    fingerprint: 'abc123'
+  }
+)
+```
+
+is equivalent to
+
+```js
+Rollbar.configure(
+  {
+    enabled: true,
+    payload: {
+      a: 'b',
+      somekey: 'other',
+      fingerprint: 'abc123'
+    }
+  }
+)
+```
+
+### Using Segment
+
+If you're using Rollbar via Segment, you will get automatic detection of uncaught errors, but Rollbar methods are not available. This is because Segment loads the Rollbar snippet asynchronously, so they may not be defined. To use them, you will need to include the Rollbar snippet directly in your `<head>`, rather than loading it through Segment.
+
+### Using in a Chrome Extension
+
+To use rollbar.js inside a Chrome extension, there are some very minor changes you need to make. You must ensure that when loading rollbar.js from the CDN, the URL is hardcoded as `https://`, rather than `//`.
+
+If your source code is minified and you want to use our Source Maps feature, you need to follow the same steps as outlined in [using source maps on many domains](/docs/source-maps/#using-source-maps-on-many-domains).
+
+
 ## Javascript Framework Support
 
 ### React
@@ -105,10 +163,10 @@ The [community library](https://github.com/tandibar/ng-rollbar) which provides t
 Angular 1 support has releases for the different versions of this Rollbar.js library. Those releases
 lag behind releases to this library, but they are usually in sync.
 
-### Angular 2
+### Angular 2 and Later
 
 Setting the `captureUncaught` option to true will result in reporting all uncaught exceptions to
-Rollbar by default. Additionally, one can catch any Angular 2 specific exceptions reported through the
+Rollbar by default. Additionally, one can catch any Angular-specific exceptions reported through the
 `@angular/core/ErrorHandler` component by setting a custom `ErrorHandler` class:
 
 ```js
@@ -242,6 +300,163 @@ Unfortunately, some very popular browser extensions may modify a user's copy of 
 to break its functionality.  This can result in Rollbar reporting exceptions that are not a direct result
 of your own code.  There are multiple approaches to dealing with this issue, the simplest of which is covered
  [in related documentation](https://github.com/rollbar/rollbar.js/tree/master/docs/extension-exceptions.md).
+
+## Telemetry
+
+We can capture a sequence of events leading up to an error/log message to enhance your visibility
+into the state of your application when something happens. We provide a few configuration options to
+allow you to decide if and what to instrument for collecting telemetry events. The configuration
+option to pass along with the other configuration values is `autoInstrument`. This can have either a
+boolean value or be an object. The default value is `true`.
+
+If you set `autoInstrument` to `false` then we will not collect any events automatically. If you set
+`autoInstrument` to an object, then the set of possible keys is `network`, `log`, `dom`,
+`navigation`, and `connectivity`. The values can be either `true` or `false`. If a key/value pair
+is omitted, then we use the default value for that key. Setting
+`autoInstrument` to `true` is equivalent to passing all of these keys with the values of `true`.
+Hence,
+
+```
+_rollbarConfig = {
+  ...
+  autoInstrument: true
+  ...
+}
+```
+
+is equivalent to
+
+```
+_rollbarConfig = {
+  ...
+  autoInstrument: {
+    network: true,
+    log: true,
+    dom: true,
+    navigation: true,
+    connectivity: true
+  }
+  ...
+}
+```
+
+Likewise,
+
+```
+_rollbarConfig = {
+  ...
+  autoInstrument: {
+    dom: false,
+    navigation: false
+  }
+  ...
+}
+```
+
+is equivalent to
+
+```
+_rollbarConfig = {
+  ...
+  autoInstrument: {
+    network: true,
+    log: true,
+    dom: false,
+    navigation: false,
+    connectivity: true
+  }
+  ...
+}
+```
+
+The different types of events that we automatically capture are: `network`, `log`, `dom`,
+`navigation`, and `connectivity`.
+
+Network events are XHR and fetch requests. We store the status code, the url, and some timing events
+to determine how long requests take.
+
+Log events are calls to `console` and we simply store which console method was called and the
+arguments.
+
+DOM events are roughly clicks and inputs that are user generated. We store what element was
+interacted with and values for certain types of inputs. We do not store the values of inputs of
+password type.
+
+Navigation events use the information from `pushState` on browsers that allow for this and gathers
+to and from information.
+
+Connectivity events try to capture changes in network connectivity status when this is exposed by
+the browser.
+
+In addition to automatically captured events, it is possible to manually add events to the list of
+telemetry events via the `captureEvent` method:
+
+```js
+var metadata = {somekey: 'somevalue'}; // Any object that gets stored with the event
+var level = 'info'; // Possible values: 'debug', 'info', 'warning', 'error', 'critical'
+rollbar.captureEvent(metadata, level);
+```
+
+There is an in-memory queue of telemetry events that gets built up over the lifecycle of a user
+interacting with your app. This queue is FIFO and has a fixed size. By default, we store the last
+100 events and send these as part of the item with each manual call to a rollbar method (log/info/warning/error) or with calls caused by an uncaught exception.
+You can configure the size of this queue using the option `maxTelemetryEvents`, however note that
+the size of the queue is fixed to be in the interval [0, 100], so while you can lower the size of
+the queue from 100, currently you can not increase the size of the queue beyond 100.
+
+Each event is stored as an object of the form
+
+```
+{
+  level: "debug" | "info" | "warning" | "error" | "critical"
+  type: string
+  timestamp_ms: number
+  body: object
+  source: string
+  uuid?: string
+}
+```
+
+The size of each of these events is mostly determined by the `body` field, however we attempt to
+store only the smallest amount of information necessary to aid in understanding. Therefore, if you
+have concerns about memory usage, you can turn the collection of some or all events off, or limit
+the size of the queue of events that we store.
+
+The data that is collected is included in the payload and also goes through the same scrubbing
+process described elsewhere. However, we also provide two additional options for scrubbing of
+telemetry specific data related to inputs in the dom. The first options is `scrubTelemetryInputs`.
+If this is set to `true` then no input values will be included in the telemetry events. This is a
+course grained on/off switch which you can use to ensure that no input data is leaked.
+
+The second options is a function `telemetryScrubber`. This function should take one argument which
+is a description of a dom node of the form:
+
+```
+{
+  tagName: string
+  id: string | undefined
+  classes: [string] | undefined
+  attributes: [
+    {
+      key: "type" | "name" | "title" | "alt"
+      value: string
+    }
+  ]
+}
+```
+
+Each time an input event is captured, your function will be called with the description of the node
+in the form above. If your function returns a truthy value then the value of the input will be
+scrubbed and not included in the event, otherwise the value will be included.
+
+The implementation requires us to wrap certain function calls as well as to setup some event
+listeners on the top level object. Because of this, there must necessarily be a performance impact
+as more code will be running in response to certain user interactions as well as interactions with
+your code. There is thus a tradeoff between gathering extra information for debugging purposes and
+execution time and memory footprint. Our suggestion is to benchmark and instrument your code and
+decide what is an acceptable tradeoff for your application. The configuration options to turn off
+some or all of the different instrumentation is provided to help you make these fine-grained
+decisions.
 
 ## Configuration Reference
 
@@ -419,6 +634,23 @@ Default: ```"error"```
 <dd>The url to which items get POSTed. This is mostly relevant to our enterprise customers. You will, however, need this if you're proxying the requests through your own server, or you're an enterprise customer.
 
 Default: ```'https://api.rollbar.com/api/1/'```
+</dd>
+
+<dt>autoInstrument
+</dt>
+<dd>An object or boolean describing what events to automatically collect. If this value is false
+then we collect nothing, if it is true we collect everything, otherwise we do not collect events for
+the keys with a false value. The default structure for this object is:
+
+```
+{
+  network: true,
+  log: true,
+  dom: true,
+  navigation: true,
+  connectivity: true
+}
+```
 </dd>
 </dl>
 
@@ -768,17 +1000,17 @@ constructor.
 var Rollbar = require('rollbar');
 var rollbar = new Rollbar({
   accessToken: 'POST_SERVER_ITEM_ACCESS_TOKEN',
-  handleUncaughtExceptions: true,
-  handleUnhandledRejections: true
+  captureUncaught: true,
+  captureUnhandledRejections: true
 });
 
 // log a generic message and send to rollbar
 rollbar.log('Hello world!');
 ```
-Setting the ```handleUncaughtExceptions``` option to true will register Rollbar as a handler for
+Setting the ```captureUncaught``` option to true will register Rollbar as a handler for
 any uncaught exceptions in your Node process.
 
-Similarly, setting the ```handleUnhandledRejections``` option to true will register Rollbar as a
+Similarly, setting the ```captureUnhandledRejections``` option to true will register Rollbar as a
 handler for any unhandled Promise rejections in your Node process.
 
 <!-- RemoveNextIfProject -->
@@ -811,11 +1043,32 @@ app.use(rollbar.errorHandler());
 app.listen(6943);
 ```
 
+### Using Koa
+
+```js
+const Koa = require('koa');
+const Rollbar = require('rollbar');
+const rollbar = new Rollbar('POST_SERVER_ITEM_ACCESS_TOKEN');
+
+const app = new Koa();
+
+// Errors handling using Rollbar as first middleware to catch exception
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (err) {
+    rollbar.error(err, ctx.request);
+  }
+});
+
+// ...
+
+app.listen(3000);
+```
+
 ### Using Hapi
 
 ```js
-#!/usr/bin/env node
-
 var Hapi = require('hapi');
 var server = new Hapi.Server();
 server.connection({ host:'localhost', port:8000 });
@@ -994,6 +1247,18 @@ If you're using the [Passport](http://passportjs.org/) authentication library, t
 
 Note: in Rollbar, the `id` is used to uniquely identify a person; `email` and `username` are supplemental and will be overwritten whenever a new value is received for an existing `id`. The `id` is a string up to 40 characters long.
 
+## Verbose Option
+
+If you would like to see what is being sent to Rollbar in your console, use the
+`verbose` option. Set `verbose: true` in your configuration, and we will output certain information
+via the [debug](https://www.npmjs.com/package/debug) package. This package uses the `DEBUG`
+environment variable to configure what to output. We use the namespace `Rollbar` for our
+log messages, so for example, to see everything you need to do something like this:
+
+```
+DEBUG=Rollbar:* node app.js
+```
+
 ## Upgrading from node_rollbar
 
 The upgrade path from `node_rollbar` version 0.6.4 to version 2.0.0 of this library is not
@@ -1033,7 +1298,7 @@ rollbar.log("Hello world!");
   - message/error, request, callback
   - message/error, request, custom
   - message/error, request, custom, callback
-- In other words, the first arugment can be a string or an exception, the type of which will be used
+- In other words, the first argument can be a string or an exception, the type of which will be used
   to subsequently construct the payload. The last argument can be a callback or the callback can be
   omitted. The second argument must be a request or null (or a callback if only two arguments are
   present). The third argument is treated as extra custom data which will be sent along with the
@@ -1054,8 +1319,8 @@ New:
 ```js
 var rollbar = new Rollbar({
   accessToken: "POST_SERVER_ITEM_ACCESS_TOKEN",
-  handleUncaughtExceptions: true,
-  handleUnhandledRejections: true
+  captureUncaught: true,
+  captureUnhandledRejections: true
 });
 
 ```
@@ -1073,7 +1338,7 @@ const Rollbar = require('rollbar');
 
 const rollbar = Rollbar.init({
   accessToken: "POST_SERVER_ITEM_ACCESS_TOKEN",
-  handleUncaughtExceptions: true
+  captureUncaught: true
 });
 ```
 
@@ -1084,6 +1349,53 @@ const Rollbar = require('rollbar');
 
 Rollbar.log('hello world');
 ```
+
+## Lambda
+
+We provide a convenience function for working with AWS Lambda, namely `lambdaHandler`. This function
+takes one argument which is your lambda function and returns a semantically equivalent function with
+all of the details of interacting with Rollbar abstracted away. If you call your callback with an
+error, it will automatically be sent to Rollbar. Additionally, extra information will be added to
+the Rollbar item that is gathered from the Lambda environment. The `uncaughtException` event
+does not work in the Lambda environment, therefore this helper also wraps your code in a
+try/catch block, reports any uncaught exception if there is one, and then rethrows to match
+the normal behaviour. For example,
+
+```js
+exports.handler = rollbar.lambdaHandler((event, context, callback) => {
+  context.callbackWaitsForEmptyEventLoop = false;
+  console.log('Received event:', JSON.stringify(event, null, 2));
+  var err = new Error('bork bork');
+  callback(err, null);
+});
+```
+
+is roughly equivalent to
+
+```js
+exports.handler = (event, context, callback) => {
+  try {
+    context.callbackWaitsForEmptyEventLoop = false;
+    console.log('Received event:', JSON.stringify(event, null, 2));
+    var err = new Error('bork bork');
+    rollbar.error(err);
+    rollbar.wait(function() {
+      callback(err, null);
+    });
+  } catch (err) {
+    rollbar.error(err);
+    rollbar.wait(function() {
+      throw err;
+    });
+  }
+};
+```
+
+## Supported Browsers
+
+The following browser versions are supported on all major desktop and mobile operating systems:
+
+IE 8+, Firefox 40+, Chrome 44+, Edge 10+, Opera 12+, and Safari 8+. 
 
 ## Help / Support
 

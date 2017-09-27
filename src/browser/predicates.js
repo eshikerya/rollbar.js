@@ -32,8 +32,8 @@ function userCheckIgnore(item, settings) {
   return true;
 }
 
-function urlIsBlacklisted(item, settings) {
-  return urlIsOnAList(item, settings, 'blacklist');
+function urlIsNotBlacklisted(item, settings) {
+  return !urlIsOnAList(item, settings, 'blacklist');
 }
 
 function urlIsWhitelisted(item, settings) {
@@ -57,10 +57,10 @@ function urlIsOnAList(item, settings, whiteOrBlack) {
     // These two checks are important to come first as they are defaults
     // in case the list is missing or the trace is missing or not well-formed
     if (!list || listLength === 0) {
-      return true;
+      return !black;
     }
     if (!trace || !trace.frames) {
-      return true;
+      return !black;
     }
 
     frameLength = trace.frames.length;
@@ -69,15 +69,15 @@ function urlIsOnAList(item, settings, whiteOrBlack) {
       filename = frame.filename;
 
       if (!_.isType(filename, 'string')) {
-        return true;
+        return !black;
       }
 
       for (j = 0; j < listLength; j++) {
         url = list[j];
         urlRegex = new RegExp(url);
 
-        if (urlRegex.test(filename)){
-          return !black;
+        if (urlRegex.test(filename)) {
+          return true;
         }
       }
     }
@@ -91,9 +91,9 @@ function urlIsOnAList(item, settings, whiteOrBlack) {
     }
     var listName = black ? 'hostBlackList' : 'hostWhiteList';
     logger.error('Error while reading your configuration\'s ' + listName + ' option. Removing custom ' + listName + '.', e);
-    return true;
+    return !black;
   }
-  return black;
+  return false;
 }
 
 function messageIsIgnored(item, settings) {
@@ -141,7 +141,7 @@ function messageIsIgnored(item, settings) {
 module.exports = {
   checkIgnore: checkIgnore,
   userCheckIgnore: userCheckIgnore,
-  urlIsBlacklisted: urlIsBlacklisted,
+  urlIsNotBlacklisted: urlIsNotBlacklisted,
   urlIsWhitelisted: urlIsWhitelisted,
   messageIsIgnored: messageIsIgnored
 };

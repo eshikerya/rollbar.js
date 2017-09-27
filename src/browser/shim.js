@@ -39,7 +39,7 @@ function setupShim(window, options) {
     return window[alias];
   }
 
-  window._rollbarShims = {}; 
+  window._rollbarShims = {};
   window._rollbarWrappedError = null;
 
   var handler = new Rollbar(options);
@@ -52,6 +52,16 @@ function setupShim(window, options) {
 
     if (options.captureUnhandledRejections) {
       globals.captureUnhandledRejections(window, handler, true);
+    }
+
+    var ai = options.autoInstrument;
+    if (options.enabled !== false) {
+      if (ai === undefined || ai === true || (typeof ai === 'object' && ai.network)) {
+        if (window.addEventListener) {
+          window.addEventListener('load', handler.captureLoad.bind(handler));
+          window.addEventListener('DOMContentLoaded', handler.captureDomContentLoaded.bind(handler));
+        }
+      }
     }
 
     window[alias] = handler;
@@ -112,7 +122,7 @@ Shim.prototype.loadFull = function(window, document, immediate, options, callbac
   parentNode.insertBefore(s, f);
 };
 
-Shim.prototype.wrap = function(f, context) {
+Shim.prototype.wrap = function(f, context, _before) {
   try {
     var ctxFn;
     if (typeof context === 'function') {
@@ -129,8 +139,11 @@ Shim.prototype.wrap = function(f, context) {
       return f;
     }
 
-    if (!f._wrapped) {
-      f._wrapped = function () {
+    if (!f._rollbar_wrapped) {
+      f._rollbar_wrapped = function () {
+        if (_before && typeof _before === 'function') {
+          _before.apply(this, arguments);
+        }
         try {
           return f.apply(this, arguments);
         } catch(exc) {
@@ -146,18 +159,18 @@ Shim.prototype.wrap = function(f, context) {
         }
       };
 
-      f._wrapped._isWrap = true;
+      f._rollbar_wrapped._isWrap = true;
 
       if (f.hasOwnProperty) {
         for (var prop in f) {
           if (f.hasOwnProperty(prop)) {
-            f._wrapped[prop] = f[prop];
+            f._rollbar_wrapped[prop] = f[prop];
           }
         }
       }
     }
 
-    return f._wrapped;
+    return f._rollbar_wrapped;
   } catch (e) {
     // Return the original function if the wrap fails.
     return f;
@@ -173,8 +186,8 @@ function stub(method) {
   });
 }
 
-var _methods = 
-  'log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection'.split(',');
+var _methods =
+  'log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,captureDomContentLoaded,captureLoad'.split(',');
 
 for (var i = 0; i < _methods.length; ++i) {
   Shim.prototype[_methods[i]] = stub(_methods[i]);

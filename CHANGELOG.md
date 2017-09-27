@@ -1,6 +1,82 @@
 # Change Log
 
-**v2.1.0**
+## v2.2.8
+
+- Stop polluting the global namespace in the umd build
+- Don't use the maxItems configuration option on the server side
+- Fix the way telementry dom elements are truncated
+- Fix some typescript declaration issues
+
+## v2.2.7
+- Ensure scrubbing has the right value for telemetry inputs if `scrubTelemetryInputs` is true.
+- Fix memory leak related to network requests
+
+## v2.2.6
+- Fix blacklist issue
+
+## v2.2.5
+- Revert `isNative` check for replacing JSON functions
+
+## v2.2.4
+- Fix a "race" condition in how wait works
+- Add two options to control scrubbing of telemetry input events: `scrubTelemetryInputs` and
+  `telemetryScrubber`.
+- Telemetry configuration was only considered at initialization time before, now allow things to be
+  turned on and off via calls to `rollbar.configure`
+- `hostBlackList` was added before to the code, but not actually added to the sequence of transforms
+  and predicates that run. Now it is actually used.
+- Fix bug related to Date.js and possibly other libraries overwriting `Date.now()` to return `new Date()`
+  rather than an integer.
+
+## v2.2.3
+- Actually make collecting network telemetry on by default
+
+## v2.2.2
+- Fix bug in network telemetry that was wrapping onreadystatechage in correctly
+- Enable collecting network telemetry by default
+- Fix stack overflow issue due to scrubbing of self-referential objects
+- Add optional second parameter to configure to make adding payload data easier
+  [#376](https://github.com/rollbar/rollbar.js/pull/376)
+- Make the typescript type declarations better
+
+## v2.2.1
+- Disable collection of network telemetry data by default
+
+## v2.2.0
+- Telemetry data is now collected by default in the browser. See
+  [README.md](https://github.com/rollbar/rollbar.js#telemetry)
+  for information and configuration details.
+- Fix some typos in the typescript declarations
+
+## v2.1.3
+- Actually change version number in package.json and build all relevant files
+
+## v2.1.2
+- Actually send the client-side UUID with the item
+- Fix typos in typescript declaration
+
+## v2.1.1
+
+- Allow more flexibility of request objects 
+[#346](https://github.com/rollbar/rollbar.js/pull/346)
+- Address issue with handleItemWithError possible not calling the callback 
+[#345](https://github.com/rollbar/rollbar.js/pull/345)
+- Fixed a typo in README.md 
+[#343](https://github.com/rollbar/rollbar.js/pull/343)
+- unify configuration options 
+[#341](https://github.com/rollbar/rollbar.js/pull/341)
+- add some intervals to keep the event loop running when wait is called 
+[#338](https://github.com/rollbar/rollbar.js/pull/338)
+- [Fixes #336] Propagate message 
+[#337](https://github.com/rollbar/rollbar.js/pull/337)
+- [Fixes #269] get rid of rollbar wrapper stack frames 
+[#335](https://github.com/rollbar/rollbar.js/pull/335)
+- first pass at a typescript declaration file 
+[#334](https://github.com/rollbar/rollbar.js/pull/334)
+- Fix #331 Verbose logging was using the wrong key structure 
+[#332](https://github.com/rollbar/rollbar.js/pull/332)
+
+## v2.1.0
 - Use the upstream version of console-polyfill: [#306](https://github.com/rollbar/rollbar.js/pull/306)
 - The verbose option still existed but didn't do anything, this adds back the functionality to
   output some information to the console: [#311](https://github.com/rollbar/rollbar.js/pull/311)
@@ -23,11 +99,11 @@
 - Allow environment to be nested inside the payload key in the configuration on the server side to
   match what we allow in the browser: [#329](https://github.com/rollbar/rollbar.js/pull/329)
 
-**v2.0.4**
+## v2.0.4
 - Fixes a small typo in the unhandled rejection handler. (pr#303)
 - Updated the no-conflict example to use the new noconflict bundle and updated docs. 
 
-**v2.0.3**
+## v2.0.3
 - Decreased NPM package size by removing examples and coverage directories. (pr#276)
 - Handle unordered params on the server side. (pr#286)
 - Fixes a server-side bug which failed to report an error if the request did not contain a `headers` key. (pr#288)
@@ -36,14 +112,14 @@
 - Fixes a bug which was causing subclasses of errors to not be treated as errors. (pr#293)
 - Added a no-conflict bundle for the browser. (pr#295)
 
-**v2.0.2**
+## v2.0.2
 - Added/updated docs on how to use rollbar.js with React, Angular 1 & 2, Ember, Backbone.js
 - Fixed a bug which was not respecting the `enabled` flag. (pr#280)
 
-**v2.0.1**
+## v2.0.1
 - Maintenance release - No new features or bugfixes
 
-**v2.0.0**
+## v2.0.0
 This release is the first where the library supports both browser and node environments from the
 same package. We decided to deprecate the `rollbar-browser` npm package in favor of using the
 `rollbar` npm package for all javascript environments. This single codebase now handles both

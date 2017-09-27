@@ -19,10 +19,12 @@ function Queue(rateLimiter, api, logger, options) {
   this.logger = logger;
   this.options = options;
   this.predicates = [];
+  this.pendingItems = [];
   this.pendingRequests = [];
   this.retryQueue = [];
   this.retryHandle = null;
   this.waitCallback = null;
+  this.waitIntervalID = null;
 }
 
 /*
@@ -53,6 +55,17 @@ Queue.prototype.addPredicate = function(predicate) {
   return this;
 };
 
+Queue.prototype.addPendingItem = function(item) {
+  this.pendingItems.push(item);
+};
+
+Queue.prototype.removePendingItem = function(item) {
+  var idx = this.pendingItems.indexOf(item);
+  if (idx !== -1) {
+    this.pendingItems.splice(idx, 1);
+  }
+};
+
 /*
  * addItem - Send an item to the Rollbar API if all of the predicates are satisfied
  *
@@ -61,21 +74,20 @@ Queue.prototype.addPredicate = function(predicate) {
  *  in the case of a success, otherwise response will be null and error will have a value. If both
  *  error and response are null then the item was stopped by a predicate which did not consider this
  *  to be an error condition, but nonetheless did not send the item to the API.
+ *  @param originalError - The original error before any transformations that is to be logged if any
  */
-Queue.prototype.addItem = function(item, callback) {
+Queue.prototype.addItem = function(item, callback, originalError, originalItem) {
   if (!callback || !_.isFunction(callback)) {
     callback = function() { return; };
   }
   var predicateResult = this._applyPredicates(item);
   if (predicateResult.stop) {
+    this.removePendingItem(originalItem);
     callback(predicateResult.err);
     return;
   }
-  if (this.waitCallback) {
-    callback();
-    return;
-  }
-  this._maybeLog(item);
+  this._maybeLog(item, originalError);
+  this.removePendingItem(originalItem);
   this.pendingRequests.push(item);
   try {
     this._makeApiRequest(item, function(err, resp) {
@@ -99,9 +111,15 @@ Queue.prototype.wait = function(callback) {
     return;
   }
   this.waitCallback = callback;
-  if (this.pendingRequests.length == 0) {
-    this.waitCallback();
+  if (this._maybeCallWait()) {
+    return;
   }
+  if (this.waitIntervalID) {
+    this.waitIntervalID = clearInterval(this.waitIntervalID);
+  }
+  this.waitIntervalID = setInterval(function() {
+    this._maybeCallWait();
+  }.bind(this), 500);
 };
 
 /* _applyPredicates - Sequentially applies the predicates that have been added to the queue to the
@@ -203,31 +221,38 @@ Queue.prototype._retryApiRequest = function(item, callback) {
  * @param item - the item previously added to the pending request queue
  */
 Queue.prototype._dequeuePendingRequest = function(item) {
-  var shouldCallWaitOnRemove = this.pendingRequests.length == 1;
-  for (var i = this.pendingRequests.length; i >= 0; i--) {
-    if (this.pendingRequests[i] == item) {
-      this.pendingRequests.splice(i, 1);
-      if (shouldCallWaitOnRemove && _.isFunction(this.waitCallback)) {
-        this.waitCallback();
-      }
-      return;
-    }
+  var idx = this.pendingRequests.indexOf(item);
+  if (idx !== -1) {
+    this.pendingRequests.splice(idx, 1);
+    this._maybeCallWait();
   }
 };
 
-Queue.prototype._maybeLog = function(item) {
+Queue.prototype._maybeLog = function(data, originalError) {
   if (this.logger && this.options.verbose) {
-    var message = _.get(item, 'data.body.trace.exception.message');
-    message = message || _.get(item, 'data.body.trace_chain.0.exception.message');
+    var message = originalError;
+    message = message || _.get(data, 'body.trace.exception.message');
+    message = message || _.get(data, 'body.trace_chain.0.exception.message');
     if (message) {
       this.logger.error(message);
       return;
     }
-    message = _.get(item, 'data.body.message.body');
+    message = _.get(data, 'body.message.body');
     if (message) {
       this.logger.log(message);
     }
   }
+};
+
+Queue.prototype._maybeCallWait = function() {
+  if (_.isFunction(this.waitCallback) && this.pendingItems.length === 0 && this.pendingRequests.length === 0) {
+    if (this.waitIntervalID) {
+      this.waitIntervalID = clearInterval(this.waitIntervalID);
+    }
+    this.waitCallback();
+    return true;
+  }
+  return false;
 };
 
 module.exports = Queue;

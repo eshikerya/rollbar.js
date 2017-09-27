@@ -35,6 +35,7 @@ function addBaseInfo(item, options, callback) {
     framework: 'browser-js',
     language: 'javascript',
     server: {},
+    uuid: item.uuid,
     notifier: {
       name: 'rollbar-browser-js',
       version: options.version
@@ -146,7 +147,7 @@ function addBodyTrace(item, options, callback) {
   };
 
   if (description) {
-    trace.exception.description = description || 'uncaught exception';
+    trace.exception.description = description;
   }
 
   // Transform a TraceKit stackInfo object into a Rollbar trace
@@ -172,6 +173,9 @@ function addBodyTrace(item, options, callback) {
         method: (!stackFrame.func || stackFrame.func === '?') ? '[anonymous]' : stackFrame.func,
         colno: stackFrame.column
       };
+      if (frame.method && frame.method.endsWith && frame.method.endsWith('_rollbar_wrapped')) {
+        continue;
+      }
 
       code = pre = post = null;
       contextLength = stackFrame.context ? stackFrame.context.length : 0;
@@ -238,19 +242,6 @@ function userTransform(item, options, callback) {
   callback(null, newItem);
 }
 
-function itemToPayload(item, options, callback) {
-  var payloadOptions = options.payload || {};
-  if (payloadOptions.body) {
-    delete payloadOptions.body;
-  }
-
-  var data = _.extend(true, {}, item.data, payloadOptions);
-  if (item._isUncaught) {
-    data._isUncaught = true;
-  }
-  callback(null, data);
-}
-
 module.exports = {
   handleItemWithError: handleItemWithError,
   ensureItemHasSomethingToSay: ensureItemHasSomethingToSay,
@@ -260,6 +251,5 @@ module.exports = {
   addPluginInfo: addPluginInfo,
   addBody: addBody,
   scrubPayload: scrubPayload,
-  userTransform: userTransform,
-  itemToPayload: itemToPayload
+  userTransform: userTransform
 };

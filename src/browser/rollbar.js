@@ -8,22 +8,28 @@ var transport = require('./transport');
 var urllib = require('./url');
 
 var transforms = require('./transforms');
+var sharedTransforms = require('../transforms');
 var predicates = require('./predicates');
 var errorParser = require('./errorParser');
+var Instrumenter = require('./telemetry');
 
 function Rollbar(options, client) {
   this.options = _.extend(true, defaultOptions, options);
   var api = new API(this.options, transport, urllib);
   this.client = client || new Client(this.options, api, logger, 'browser');
+
   addTransformsToNotifier(this.client.notifier);
   addPredicatesToQueue(this.client.queue);
-  if (this.options.captureUncaught) {
+  if (this.options.captureUncaught || this.options.handleUncaughtExceptions) {
     globals.captureUncaughtExceptions(window, this);
     globals.wrapGlobals(window, this);
   }
-  if (this.options.captureUnhandledRejections) {
+  if (this.options.captureUnhandledRejections || this.options.handleUnhandledRejections) {
     globals.captureUnhandledRejections(window, this);
   }
+
+  this.instrumenter = new Instrumenter(this.options, this.client.telemeter, this, window, document);
+  this.instrumenter.instrument();
 }
 
 var _instance = null;
@@ -55,15 +61,20 @@ Rollbar.global = function(options) {
   }
 };
 
-Rollbar.prototype.configure = function(options) {
+Rollbar.prototype.configure = function(options, payloadData) {
   var oldOptions = this.options;
-  this.options = _.extend(true, {}, oldOptions, options);
-  this.client.configure(options);
+  var payload = {};
+  if (payloadData) {
+    payload = {payload: payloadData};
+  }
+  this.options = _.extend(true, {}, oldOptions, options, payload);
+  this.client.configure(options, payloadData);
+  this.instrumenter.configure(options);
   return this;
 };
-Rollbar.configure = function(options) {
+Rollbar.configure = function(options, payloadData) {
   if (_instance) {
-    return _instance.configure(options);
+    return _instance.configure(options, payloadData);
   } else {
     handleUninitialized();
   }
@@ -240,7 +251,7 @@ Rollbar.prototype.handleUnhandledRejection = function(reason, promise) {
   this.client.log(item);
 };
 
-Rollbar.prototype.wrap = function(f, context) {
+Rollbar.prototype.wrap = function(f, context, _before) {
   try {
     var ctxFn;
     if(_.isFunction(context)) {
@@ -257,8 +268,11 @@ Rollbar.prototype.wrap = function(f, context) {
       return f;
     }
 
-    if (!f._wrapped) {
-      f._wrapped = function () {
+    if (!f._rollbar_wrapped) {
+      f._rollbar_wrapped = function () {
+        if (_before && _.isFunction(_before)) {
+          _before.apply(this, arguments);
+        }
         try {
           return f.apply(this, arguments);
         } catch(exc) {
@@ -274,18 +288,18 @@ Rollbar.prototype.wrap = function(f, context) {
         }
       };
 
-      f._wrapped._isWrap = true;
+      f._rollbar_wrapped._isWrap = true;
 
       if (f.hasOwnProperty) {
         for (var prop in f) {
           if (f.hasOwnProperty(prop)) {
-            f._wrapped[prop] = f[prop];
+            f._rollbar_wrapped[prop] = f[prop];
           }
         }
       }
     }
 
-    return f._wrapped;
+    return f._rollbar_wrapped;
   } catch (e) {
     // Return the original function if the wrap fails.
     return f;
@@ -299,6 +313,32 @@ Rollbar.wrap = function(f, context) {
   }
 };
 
+Rollbar.prototype.captureEvent = function(metadata, level) {
+  return this.client.captureEvent(metadata, level);
+};
+Rollbar.captureEvent = function(metadata, level) {
+  if (_instance) {
+    return _instance.captureEvent(metadata, level);
+  } else {
+    handleUninitialized();
+  }
+};
+
+// The following two methods are used internally and are not meant for public use
+Rollbar.prototype.captureDomContentLoaded = function(e, ts) {
+  if (!ts) {
+    ts = new Date();
+  }
+  return this.client.captureDomContentLoaded(ts);
+};
+
+Rollbar.prototype.captureLoad = function(e, ts) {
+  if (!ts) {
+    ts = new Date();
+  }
+  return this.client.captureLoad(ts);
+};
+
 /* Internal */
 
 function addTransformsToNotifier(notifier) {
@@ -310,15 +350,18 @@ function addTransformsToNotifier(notifier) {
     .addTransform(transforms.addClientInfo(window))
     .addTransform(transforms.addPluginInfo(window))
     .addTransform(transforms.addBody)
+    .addTransform(sharedTransforms.addMessageWithError)
+    .addTransform(sharedTransforms.addTelemetryData)
     .addTransform(transforms.scrubPayload)
     .addTransform(transforms.userTransform)
-    .addTransform(transforms.itemToPayload);
+    .addTransform(sharedTransforms.itemToPayload);
 }
 
 function addPredicatesToQueue(queue) {
   queue
     .addPredicate(predicates.checkIgnore)
     .addPredicate(predicates.userCheckIgnore)
+    .addPredicate(predicates.urlIsNotBlacklisted)
     .addPredicate(predicates.urlIsWhitelisted)
     .addPredicate(predicates.messageIsIgnored);
 }

@@ -9,10 +9,10 @@ function setupJSON() {
   __initRollbarJSON = true;
 
   if (isDefined(JSON)) {
-    if (isFunction(JSON.stringify)) {
+    if (isNativeFunction(JSON.stringify)) {
       RollbarJSON.stringify = JSON.stringify;
     }
-    if (isFunction(JSON.parse)) {
+    if (isNativeFunction(JSON.parse)) {
       RollbarJSON.parse = JSON.parse;
     }
   }
@@ -71,6 +71,30 @@ function isFunction(f) {
   return isType(f, 'function');
 }
 
+/* isNativeFunction - a convenience function for checking if a value is a native JS function
+ *
+ * @param f - any value
+ * @returns true if f is a native JS function, otherwise false
+ */
+function isNativeFunction(f) {
+  var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
+  var funcMatchString = Function.prototype.toString.call(Object.prototype.hasOwnProperty)
+    .replace(reRegExpChar, '\\$&')
+    .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?');
+  var reIsNative = RegExp('^' + funcMatchString + '$');
+  return isObject(f) && reIsNative.test(f);
+}
+
+/* isObject - Checks if the argument is an object
+ *
+ * @param value - any value
+ * @returns true is value is an object function is an object)
+*/
+function isObject(value) {
+  var type = typeof value;
+  return value != null && (type == 'object' || type == 'function');
+}
+
 /*
  * isDefined - a convenience function for checking if a value is not equal to undefined
  *
@@ -103,29 +127,16 @@ function isError(e) {
   return isType(e, 'error');
 }
 
-/* wrapRollbarFunction - puts a try/catch around a function, logs caught exceptions to console.error
- *
- * @param f - a function
- * @param ctx - an optional context to bind the function to
- */
-function wrapRollbarFunction(logger, f, ctx) {
-  return function() {
-    var self = ctx || this;
-    try {
-      return f.apply(self, arguments);
-    } catch (e) {
-      logger.error(e);
-    }
-  };
-}
-
-function traverse(obj, func) {
-  var k;
-  var v;
-  var i;
+function traverse(obj, func, seen) {
+  var k, v, i;
   var isObj = isType(obj, 'object');
   var isArray = isType(obj, 'array');
   var keys = [];
+
+  if (isObj && seen.indexOf(obj) !== -1) {
+    return obj;
+  }
+  seen.push(obj);
 
   if (isObj) {
     for (k in obj) {
@@ -142,7 +153,7 @@ function traverse(obj, func) {
   for (i = 0; i < keys.length; ++i) {
     k = keys[i];
     v = obj[k];
-    obj[k] = func(k, v);
+    obj[k] = func(k, v, seen);
   }
 
   return obj;
@@ -154,7 +165,7 @@ function redact() {
 
 // from http://stackoverflow.com/a/8809472/1138191
 function uuid4() {
-  var d = new Date().getTime();
+  var d = now();
   var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     var r = (d + Math.random() * 16) % 16 | 0;
     d = Math.floor(d / 16);
@@ -344,7 +355,17 @@ function makeUnhandledStackInfo(
   };
 }
 
-function createItem(args, logger, notifier, requestKeys) {
+function wrapCallback(logger, f) {
+  return function(err, resp) {
+    try {
+      f(err, resp);
+    } catch (e) {
+      logger.error(e);
+    }
+  };
+}
+
+function createItem(args, logger, notifier, requestKeys, lambdaContext) {
   var message, err, custom, callback, request;
   var arg;
   var extraArgs = [];
@@ -360,7 +381,7 @@ function createItem(args, logger, notifier, requestKeys) {
         message ? extraArgs.push(arg) : message = arg;
         break;
       case 'function':
-        callback = wrapRollbarFunction(logger, arg, notifier);
+        callback = wrapCallback(logger, arg);
         break;
       case 'date':
         extraArgs.push(arg);
@@ -377,7 +398,7 @@ function createItem(args, logger, notifier, requestKeys) {
         }
         if (requestKeys && typ === 'object' && !request) {
           for (var j = 0, len = requestKeys.length; j < len; ++j) {
-            if (arg[requestKeys[j]]) {
+            if (arg[requestKeys[j]] !== undefined) {
               request = arg;
               break;
             }
@@ -407,7 +428,7 @@ function createItem(args, logger, notifier, requestKeys) {
     message: message,
     err: err,
     custom: custom,
-    timestamp: (new Date()).getTime(),
+    timestamp: now(),
     callback: callback,
     uuid: uuid4()
   };
@@ -417,6 +438,9 @@ function createItem(args, logger, notifier, requestKeys) {
   }
   if (requestKeys && request) {
     item.request = request;
+  }
+  if (lambdaContext) {
+    item.lambdaContext = lambdaContext;
   }
   item._originalArgs = args;
   return item;
@@ -503,11 +527,11 @@ function scrub(data, scrubFields) {
     return v;
   }
 
-  function scrubber(k, v) {
+  function scrubber(k, v, seen) {
     var tmpV = valScrubber(k, v);
     if (tmpV === v) {
       if (isType(v, 'object') || isType(v, 'array')) {
-        return traverse(v, scrubber);
+        return traverse(v, scrubber, seen);
       }
       return paramScrubber(tmpV);
     } else {
@@ -515,7 +539,7 @@ function scrub(data, scrubFields) {
     }
   }
 
-  traverse(data, scrubber);
+  traverse(data, scrubber, []);
   return data;
 }
 
@@ -540,17 +564,42 @@ function _getScrubQueryParamRegexs(scrubFields) {
   return ret;
 }
 
+function formatArgsAsString(args) {
+  var i, len, arg;
+  var result = [];
+  for (i = 0, len = args.length; i < len; i++) {
+    arg = args[i];
+    if (typeof arg === 'object') {
+      arg = stringify(arg);
+      arg = arg.error || arg.value;
+      if (arg.length > 500)
+        arg = arg.substr(0,500)+'...';
+    } else if (typeof arg === 'undefined') {
+      arg = 'undefined';
+    }
+    result.push(arg);
+  }
+  return result.join(' ');
+}
+
+function now() {
+  if (Date.now) {
+    return +Date.now();
+  }
+  return +new Date();
+}
+
 module.exports = {
   isType: isType,
   typeName: typeName,
   isFunction: isFunction,
+  isNativeFunction: isNativeFunction,
   isIterable: isIterable,
   isError: isError,
   extend: extend,
   traverse: traverse,
   redact: redact,
   uuid4: uuid4,
-  wrapRollbarFunction: wrapRollbarFunction,
   LEVELS: LEVELS,
   sanitizeUrl: sanitizeUrl,
   addParamsAndAccessTokenToPath: addParamsAndAccessTokenToPath,
@@ -561,5 +610,7 @@ module.exports = {
   createItem: createItem,
   get: get,
   set: set,
-  scrub: scrub
+  scrub: scrub,
+  formatArgsAsString: formatArgsAsString,
+  now: now
 };

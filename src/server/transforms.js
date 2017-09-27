@@ -7,7 +7,7 @@ var _ = require('../utility');
 function baseData(item, options, callback) {
   var environment = (options.payload && options.payload.environment) || options.environment;
   var data = {
-    timestamp: Math.floor((new Date().getTime()) / 1000),
+    timestamp: Math.round(item.timestamp / 1000),
     environment: item.environment || environment,
     level: item.level || 'error',
     language: 'javascript',
@@ -73,8 +73,7 @@ function addBody(item, options, callback) {
 
 function handleItemWithError(item, options, callback) {
   if (!item.err) {
-    callback(null, item);
-    return;
+    return callback(null, item);
   }
 
   var err = item.err;
@@ -82,15 +81,15 @@ function handleItemWithError(item, options, callback) {
   var chain = [];
   do {
     errors.push(err);
-  } while ((err = err.nested) !== undefined);
+    err = err.nested;
+  } while (err !== undefined);
   item.stackInfo = chain;
 
-  var cb = function(err) {
-    if (err) {
+  var cb = function(e) {
+    if (e) {
       item.message = item.err.message || item.err.description || item.message || String(item.err);
       delete item.err;
       delete item.stackInfo;
-      callback(null, item);
     }
     callback(null, item);
   };
@@ -146,22 +145,35 @@ function addRequestData(item, options, callback) {
   callback(null, item);
 }
 
+function addLambdaData(item, options, callback) {
+  var c = item.lambdaContext;
+  if (!c) {
+    callback(null, item);
+    return;
+  }
+
+  var data = {
+    remainingTimeInMillis: c.getRemainingTimeInMillis(),
+    callbackWaitsForEmptyEventLoop: c.callbackWaitsForEmptyEventLoop,
+    functionName: c.functionName,
+    functionVersion: c.functionVersion,
+    arn: c.invokedFunctionArn,
+    requestId: c.awsRequestId
+  };
+
+  item.data = item.data || {};
+  item.data.custom = item.data.custom || {};
+  item.data.custom.lambda = data;
+
+  callback(null, item);
+}
+
 function scrubPayload(item, options, callback) {
   var scrubHeaders = options.scrubHeaders || [];
   var scrubFields = options.scrubFields || [];
   scrubFields = scrubHeaders.concat(scrubFields);
   _.scrub(item.data, scrubFields);
   callback(null, item);
-}
-
-function convertToPayload(item, options, callback) {
-  var payloadOptions = options.payload || {};
-  if (payloadOptions.body) {
-    delete payloadOptions.body;
-  }
-
-  var data = _.extend(true, {}, item.data, payloadOptions);
-  callback(null, data);
 }
 
 /** Helpers **/
@@ -181,7 +193,7 @@ function _buildTraceData(chain) {
         }
       });
 
-      return cb();
+      return cb(null);
     });
   };
 }
@@ -198,27 +210,37 @@ function _buildRequestData(req) {
   var headers = req.headers || {};
   var host = headers.host || '<no host>';
   var proto = req.protocol || ((req.socket && req.socket.encrypted) ? 'https' : 'http' );
-  var reqUrl = proto + '://' + host + (req.url || '');
-  var parsedUrl = url.parse(reqUrl, true);
+  var parsedUrl;
+  if (_.isType(req.url, 'string')) {
+    parsedUrl = url.parse(req.url, true);
+  } else {
+    parsedUrl = req.url || {};
+  }
+  parsedUrl.protocol = parsedUrl.protocol || proto;
+  parsedUrl.host = parsedUrl.host || host;
+  var reqUrl = url.format(parsedUrl);
   var data = {
     url: reqUrl,
-    GET: parsedUrl.query,
     user_ip: _extractIp(req),
     headers: headers,
     method: req.method
   };
+  if (parsedUrl.search && parsedUrl.search.length > 0) {
+    data.GET = parsedUrl.query;
+  }
 
-  if (req.body) {
+  var body = req.body || req.payload;
+  if (body) {
     var bodyParams = {};
-    if (_.isIterable(req.body)) {
-      for (var k in req.body) {
-        if (Object.prototype.hasOwnProperty.call(req.body, k)) {
-          bodyParams[k] = req.body[k];
+    if (_.isIterable(body)) {
+      for (var k in body) {
+        if (Object.prototype.hasOwnProperty.call(body, k)) {
+          bodyParams[k] = body[k];
         }
       }
       data[req.method] = bodyParams;
     } else {
-      data.body = req.body;
+      data.body = body;
     }
   }
   return data;
@@ -231,7 +253,7 @@ module.exports = {
   addMessageData: addMessageData,
   addErrorData: addErrorData,
   addRequestData: addRequestData,
-  scrubPayload: scrubPayload,
-  convertToPayload: convertToPayload
+  addLambdaData: addLambdaData,
+  scrubPayload: scrubPayload
 };
 
