@@ -434,6 +434,7 @@ define("rollbar", [], function() { return /******/ (function(modules) { // webpa
 	    .addTransform(transforms.addBody)
 	    .addTransform(sharedTransforms.addMessageWithError)
 	    .addTransform(sharedTransforms.addTelemetryData)
+	    .addTransform(sharedTransforms.addConfigToPayload)
 	    .addTransform(transforms.scrubPayload)
 	    .addTransform(sharedTransforms.userTransform(logger))
 	    .addTransform(sharedTransforms.itemToPayload);
@@ -476,7 +477,8 @@ define("rollbar", [], function() { return /******/ (function(modules) { // webpa
 	  uncaughtErrorLevel: ("error"),
 	  endpoint: ("api.rollbar.com/api/1/item/"),
 	  verbose: false,
-	  enabled: true
+	  enabled: true,
+	  sendConfig: false
 	};
 	
 	module.exports = Rollbar;
@@ -3682,6 +3684,10 @@ define("rollbar", [], function() { return /******/ (function(modules) { // webpa
 	    stack = item._unhandledStackInfo.stack;
 	  }
 	  if (stack) {
+	    if (stack.length === 0) {
+	      trace.exception.stack = stackInfo.rawStack;
+	      trace.exception.raw = String(stackInfo.rawException);
+	    }
 	    var stackFrame;
 	    var frame;
 	    var code;
@@ -3806,9 +3812,20 @@ define("rollbar", [], function() { return /******/ (function(modules) { // webpa
 	function Stack(exception) {
 	  function getStack() {
 	    var parserStack = [];
+	    var exc;
+	
+	    if (!exception.stack) {
+	      try {
+	        throw exception;
+	      } catch (e) {
+	        exc = e;
+	      }
+	    } else {
+	      exc = exception;
+	    }
 	
 	    try {
-	      parserStack = ErrorStackParser.parse(exception);
+	      parserStack = ErrorStackParser.parse(exc);
 	    } catch(e) {
 	      parserStack = [];
 	    }
@@ -3825,7 +3842,9 @@ define("rollbar", [], function() { return /******/ (function(modules) { // webpa
 	  return {
 	    stack: getStack(),
 	    message: exception.message,
-	    name: exception.name
+	    name: exception.name,
+	    rawStack: exception.stack,
+	    rawException: exception
 	  };
 	}
 	
@@ -4245,11 +4264,23 @@ define("rollbar", [], function() { return /******/ (function(modules) { // webpa
 	  }
 	}
 	
+	function addConfigToPayload(item, options, callback) {
+	  if (!options.sendConfig) {
+	    return callback(null, item);
+	  }
+	  var configKey = '_rollbarConfig';
+	  var custom = _.get(item, 'data.custom') || {};
+	  custom[configKey] = options;
+	  item.data.custom = custom;
+	  callback(null, item);
+	}
+	
 	module.exports = {
 	  itemToPayload: itemToPayload,
 	  addTelemetryData: addTelemetryData,
 	  addMessageWithError: addMessageWithError,
-	  userTransform: userTransform
+	  userTransform: userTransform,
+	  addConfigToPayload: addConfigToPayload
 	};
 
 
@@ -4320,7 +4351,7 @@ define("rollbar", [], function() { return /******/ (function(modules) { // webpa
 	    if (!list || listLength === 0) {
 	      return !black;
 	    }
-	    if (!trace || !trace.frames) {
+	    if (!trace || !trace.frames || trace.frames.length === 0) {
 	      return !black;
 	    }
 	
