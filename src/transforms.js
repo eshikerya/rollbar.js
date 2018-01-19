@@ -47,8 +47,38 @@ function addMessageWithError(item, options, callback) {
   callback(null, item);
 }
 
+function userTransform(logger) {
+  return function(item, options, callback) {
+    var newItem = _.extend(true, {}, item);
+    try {
+      if (_.isFunction(options.transform)) {
+        options.transform(newItem.data);
+      }
+    } catch (e) {
+      options.transform = null;
+      logger.error('Error while calling custom transform() function. Removing custom transform().', e);
+      callback(null, item);
+      return;
+    }
+    callback(null, newItem);
+  }
+}
+
+function addConfigToPayload(item, options, callback) {
+  if (!options.sendConfig) {
+    return callback(null, item);
+  }
+  var configKey = '_rollbarConfig';
+  var custom = _.get(item, 'data.custom') || {};
+  custom[configKey] = options;
+  item.data.custom = custom;
+  callback(null, item);
+}
+
 module.exports = {
   itemToPayload: itemToPayload,
   addTelemetryData: addTelemetryData,
-  addMessageWithError: addMessageWithError
+  addMessageWithError: addMessageWithError,
+  userTransform: userTransform,
+  addConfigToPayload: addConfigToPayload
 };

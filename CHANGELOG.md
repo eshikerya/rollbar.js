@@ -1,5 +1,77 @@
 # Change Log
 
+## v2.3.6
+
+- Updates for React Native
+
+## v2.3.5
+
+- Correct error in typescript declarations
+
+## v2.3.4
+
+- Fix React Native undefined Regexp -> RegExp
+- Minor documentation changes
+- More typescript declarations
+
+## v2.3.3
+
+- Rewrite filenames for React Native hosts to make source maps easier to work with.
+- Include current item in telemetry queue to mitigate a UI issue on the backend
+
+## v2.3.2
+
+- Be defensive about navigator not existing on window 
+[#514](https://github.com/rollbar/rollbar.js/pull/514)
+
+- Proper scrubbing 
+[#510](https://github.com/rollbar/rollbar.js/pull/510)
+
+- Be defensive when accessing event properties 
+[#503](https://github.com/rollbar/rollbar.js/pull/503)
+
+- Add environment to options type enhancement
+[#499](https://github.com/rollbar/rollbar.js/pull/499)
+
+- call the transform in the options on the server side too 
+[#498](https://github.com/rollbar/rollbar.js/pull/498)
+
+- fixes errMsg.match is not a function error 
+[#492](https://github.com/rollbar/rollbar.js/pull/492)
+
+- Call callback even if logging same as last error 
+[#490](https://github.com/rollbar/rollbar.js/pull/490)
+
+## v2.3.1
+
+- Attempt to get CDNJS to work
+
+## v2.3.0
+
+- React Native support. This introduces a interface layer for handling Javascript errors from React
+  Native. This library is a dependency of https://github.com/rollbar/rollbar-react-native which is
+  intended to be the main entry point for interacting with Rollbar from React Native.
+
+- Fix a bug related to telemetry scrubbing configuration options not being properly set via calls to
+  `configure`
+
+- BREAKING: the endpoint configuration option used to default to `https://api.rollbar.com/api/1` and
+  we would append `/item/` to obtain the URL for posting items. Now the default configuration option
+  for endpoint is `https://api.rollbar.com/api/1/item/` and we no longer append `/item/` to whatever
+  value you set. Therefore, if you are currently setting this value, you will need to change your
+  setting to be equal to the exact URL you want items posted to, rather than the base URL that gets
+  `/item/` appended.
+
+## v2.2.10
+
+- Fix a bug relating to maxItems not being recognized in the initial configuration.
+
+## v2.2.9
+
+- Update debug package to v2.6.9 to address Node Security Warning
+- Fix calling captureEvent on the singleton
+- Clean up some references to our wrapper in stack traces
+
 ## v2.2.8
 
 - Stop polluting the global namespace in the umd build

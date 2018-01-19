@@ -1,10 +1,11 @@
 {
   "name": "rollbar",
-  "version": "2.2.8",
+  "version": "2.3.7",
   "repository": {
     "type": "git",
     "url": "http://github.com/rollbar/rollbar.js"
   },
+  "description": "Error tracking and logging from JS to Rollbar",
   "license": "MIT",
   "main": "src/server/rollbar.js",
   "browser": "dist/rollbar.umd.min.js",
@@ -79,7 +80,6 @@
     "request": "^2.62.0",
     "requirejs": "^2.1.20",
     "script-loader": "0.6.1",
-    "semver": "~2.2.1",
     "sinon": "~1.7.3",
     "stackframe": "^0.2.2",
     "strict-loader": "^0.1.2",
@@ -101,7 +101,7 @@
     "host": "cdnjs.cloudflare.com"
   },
   "defaults": {
-    "endpoint": "api.rollbar.com/api/1/",
+    "endpoint": "api.rollbar.com/api/1/item/",
     "browser": {
       "scrubFields": [
         "pw",

@@ -1,13 +1,13 @@
-# Rollbar notifier for JavaScript [![Build Status](https://api.travis-ci.org/rollbar/rollbar.js.png?branch=v2.2.8)](https://travis-ci.org/rollbar/rollbar.js)
+# Rollbar notifier for JavaScript [![Build Status](https://api.travis-ci.org/rollbar/rollbar.js.png?branch=v2.3.7)](https://travis-ci.org/rollbar/rollbar.js)
 
 <!-- Sub:[TOC] -->
 
 ## Quick start Browser
 
-Copy-paste the following code into the ```<head>``` of every page you want to monitor. It should be as high as possible, before any other ```<script>``` tags.
+Copy-paste the following code into the `<head>` of every page you want to monitor. It should be as high as possible, before any other `<script>` tags.
 
 <!-- RemoveNextIfProject -->
-Be sure to replace ```POST_CLIENT_ITEM_ACCESS_TOKEN``` with your project's ```post_client_item``` access token, which you can find in the Rollbar.com interface. You can find this in your project settings ("Settings" link at the top of the Rollbar website) in the "Project Access Tokens" settings area.
+Be sure to replace `POST_CLIENT_ITEM_ACCESS_TOKEN` with your project's `post_client_item` access token, which you can find in the Rollbar.com interface. You can find this in your project settings ("Settings" link at the top of the Rollbar website) in the "Project Access Tokens" settings area.
 
 <!-- EditableTextAreaStart -->
 <!-- RemoveNext -->
@@ -22,25 +22,25 @@ var _rollbarConfig = {
     }
 };
 // Rollbar Snippet
-!function(r){function o(n){if(e[n])return e[n].exports;var t=e[n]={exports:{},id:n,loaded:!1};return r[n].call(t.exports,t,t.exports,o),t.loaded=!0,t.exports}var e={};return o.m=r,o.c=e,o.p="",o(0)}([function(r,o,e){"use strict";var n=e(1),t=e(4);_rollbarConfig=_rollbarConfig||{},_rollbarConfig.rollbarJsUrl=_rollbarConfig.rollbarJsUrl||"https://cdnjs.cloudflare.com/ajax/libs/rollbar.js/2.2.8/rollbar.min.js",_rollbarConfig.async=void 0===_rollbarConfig.async||_rollbarConfig.async;var a=n.setupShim(window,_rollbarConfig),l=t(_rollbarConfig);window.rollbar=n.Rollbar,a.loadFull(window,document,!_rollbarConfig.async,_rollbarConfig,l)},function(r,o,e){"use strict";function n(r){return function(){try{return r.apply(this,arguments)}catch(r){try{console.error("[Rollbar]: Internal error",r)}catch(r){}}}}function t(r,o){this.options=r,this._rollbarOldOnError=null;var e=s++;this.shimId=function(){return e},window&&window._rollbarShims&&(window._rollbarShims[e]={handler:o,messages:[]})}function a(r,o){var e=o.globalAlias||"Rollbar";if("object"==typeof r[e])return r[e];r._rollbarShims={},r._rollbarWrappedError=null;var t=new p(o);return n(function(){o.captureUncaught&&(t._rollbarOldOnError=r.onerror,i.captureUncaughtExceptions(r,t,!0),i.wrapGlobals(r,t,!0)),o.captureUnhandledRejections&&i.captureUnhandledRejections(r,t,!0);var n=o.autoInstrument;return o.enabled!==!1&&(void 0===n||n===!0||"object"==typeof n&&n.network)&&r.addEventListener&&(r.addEventListener("load",t.captureLoad.bind(t)),r.addEventListener("DOMContentLoaded",t.captureDomContentLoaded.bind(t))),r[e]=t,t})()}function l(r){return n(function(){var o=this,e=Array.prototype.slice.call(arguments,0),n={shim:o,method:r,args:e,ts:new Date};window._rollbarShims[this.shimId()].messages.push(n)})}var i=e(2),s=0,d=e(3),c=function(r,o){return new t(r,o)},p=d.bind(null,c);t.prototype.loadFull=function(r,o,e,t,a){var l=function(){var o;if(void 0===r._rollbarDidLoad){o=new Error("rollbar.js did not load");for(var e,n,t,l,i=0;e=r._rollbarShims[i++];)for(e=e.messages||[];n=e.shift();)for(t=n.args||[],i=0;i<t.length;++i)if(l=t[i],"function"==typeof l){l(o);break}}"function"==typeof a&&a(o)},i=!1,s=o.createElement("script"),d=o.getElementsByTagName("script")[0],c=d.parentNode;s.crossOrigin="",s.src=t.rollbarJsUrl,e||(s.async=!0),s.onload=s.onreadystatechange=n(function(){if(!(i||this.readyState&&"loaded"!==this.readyState&&"complete"!==this.readyState)){s.onload=s.onreadystatechange=null;try{c.removeChild(s)}catch(r){}i=!0,l()}}),c.insertBefore(s,d)},t.prototype.wrap=function(r,o,e){try{var n;if(n="function"==typeof o?o:function(){return o||{}},"function"!=typeof r)return r;if(r._isWrap)return r;if(!r._rollbar_wrapped&&(r._rollbar_wrapped=function(){e&&"function"==typeof e&&e.apply(this,arguments);try{return r.apply(this,arguments)}catch(e){var o=e;throw"string"==typeof o&&(o=new String(o)),o._rollbarContext=n()||{},o._rollbarContext._wrappedSource=r.toString(),window._rollbarWrappedError=o,o}},r._rollbar_wrapped._isWrap=!0,r.hasOwnProperty))for(var t in r)r.hasOwnProperty(t)&&(r._rollbar_wrapped[t]=r[t]);return r._rollbar_wrapped}catch(o){return r}};for(var u="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,captureDomContentLoaded,captureLoad".split(","),f=0;f<u.length;++f)t.prototype[u[f]]=l(u[f]);r.exports={setupShim:a,Rollbar:p}},function(r,o){"use strict";function e(r,o,e){if(r){var t;"function"==typeof o._rollbarOldOnError?t=o._rollbarOldOnError:r.onerror&&!r.onerror.belongsToShim&&(t=r.onerror,o._rollbarOldOnError=t);var a=function(){var e=Array.prototype.slice.call(arguments,0);n(r,o,t,e)};a.belongsToShim=e,r.onerror=a}}function n(r,o,e,n){r._rollbarWrappedError&&(n[4]||(n[4]=r._rollbarWrappedError),n[5]||(n[5]=r._rollbarWrappedError._rollbarContext),r._rollbarWrappedError=null),o.handleUncaughtException.apply(o,n),e&&e.apply(r,n)}function t(r,o,e){if(r){"function"==typeof r._rollbarURH&&r._rollbarURH.belongsToShim&&r.removeEventListener("unhandledrejection",r._rollbarURH);var n=function(r){var e=r.reason,n=r.promise,t=r.detail;!e&&t&&(e=t.reason,n=t.promise),o&&o.handleUnhandledRejection&&o.handleUnhandledRejection(e,n)};n.belongsToShim=e,r._rollbarURH=n,r.addEventListener("unhandledrejection",n)}}function a(r,o,e){if(r){var n,t,a="EventTarget,Window,Node,ApplicationCache,AudioTrackList,ChannelMergerNode,CryptoOperation,EventSource,FileReader,HTMLUnknownElement,IDBDatabase,IDBRequest,IDBTransaction,KeyOperation,MediaController,MessagePort,ModalWindow,Notification,SVGElementInstance,Screen,TextTrack,TextTrackCue,TextTrackList,WebSocket,WebSocketWorker,Worker,XMLHttpRequest,XMLHttpRequestEventTarget,XMLHttpRequestUpload".split(",");for(n=0;n<a.length;++n)t=a[n],r[t]&&r[t].prototype&&l(o,r[t].prototype,e)}}function l(r,o,e){if(o.hasOwnProperty&&o.hasOwnProperty("addEventListener")){for(var n=o.addEventListener;n._rollbarOldAdd&&n.belongsToShim;)n=n._rollbarOldAdd;var t=function(o,e,t){n.call(this,o,r.wrap(e),t)};t._rollbarOldAdd=n,t.belongsToShim=e,o.addEventListener=t;for(var a=o.removeEventListener;a._rollbarOldRemove&&a.belongsToShim;)a=a._rollbarOldRemove;var l=function(r,o,e){a.call(this,r,o&&o._rollbar_wrapped||o,e)};l._rollbarOldRemove=a,l.belongsToShim=e,o.removeEventListener=l}}r.exports={captureUncaughtExceptions:e,captureUnhandledRejections:t,wrapGlobals:a}},function(r,o){"use strict";function e(r,o){this.impl=r(o,this),this.options=o,n(e.prototype)}function n(r){for(var o=function(r){return function(){var o=Array.prototype.slice.call(arguments,0);if(this.impl[r])return this.impl[r].apply(this.impl,o)}},e="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,_createItem,wrap,loadFull,shimId,captureDomContentLoaded,captureLoad".split(","),n=0;n<e.length;n++)r[e[n]]=o(e[n])}e.prototype._swapAndProcessMessages=function(r,o){this.impl=r(this.options);for(var e,n,t;e=o.shift();)n=e.method,t=e.args,this[n]&&"function"==typeof this[n]&&("captureDomContentLoaded"===n||"captureLoad"===n?this[n].apply(this,[t[0],e.ts]):this[n].apply(this,t));return this},r.exports=e},function(r,o){"use strict";r.exports=function(r){return function(o){if(!o&&!window._rollbarInitialized){r=r||{};for(var e,n,t=r.globalAlias||"Rollbar",a=window.rollbar,l=function(r){return new a(r)},i=0;e=window._rollbarShims[i++];)n||(n=e.handler),e.handler._swapAndProcessMessages(l,e.messages);window[t]=n,window._rollbarInitialized=!0}}}}]);
+!function(r){function o(n){if(e[n])return e[n].exports;var t=e[n]={exports:{},id:n,loaded:!1};return r[n].call(t.exports,t,t.exports,o),t.loaded=!0,t.exports}var e={};return o.m=r,o.c=e,o.p="",o(0)}([function(r,o,e){"use strict";var n=e(1),t=e(4);_rollbarConfig=_rollbarConfig||{},_rollbarConfig.rollbarJsUrl=_rollbarConfig.rollbarJsUrl||"https://cdnjs.cloudflare.com/ajax/libs/rollbar.js/2.3.7/rollbar.min.js",_rollbarConfig.async=void 0===_rollbarConfig.async||_rollbarConfig.async;var a=n.setupShim(window,_rollbarConfig),l=t(_rollbarConfig);window.rollbar=n.Rollbar,a.loadFull(window,document,!_rollbarConfig.async,_rollbarConfig,l)},function(r,o,e){"use strict";function n(r){return function(){try{return r.apply(this,arguments)}catch(r){try{console.error("[Rollbar]: Internal error",r)}catch(r){}}}}function t(r,o){this.options=r,this._rollbarOldOnError=null;var e=s++;this.shimId=function(){return e},window&&window._rollbarShims&&(window._rollbarShims[e]={handler:o,messages:[]})}function a(r,o){var e=o.globalAlias||"Rollbar";if("object"==typeof r[e])return r[e];r._rollbarShims={},r._rollbarWrappedError=null;var t=new p(o);return n(function(){o.captureUncaught&&(t._rollbarOldOnError=r.onerror,i.captureUncaughtExceptions(r,t,!0),i.wrapGlobals(r,t,!0)),o.captureUnhandledRejections&&i.captureUnhandledRejections(r,t,!0);var n=o.autoInstrument;return o.enabled!==!1&&(void 0===n||n===!0||"object"==typeof n&&n.network)&&r.addEventListener&&(r.addEventListener("load",t.captureLoad.bind(t)),r.addEventListener("DOMContentLoaded",t.captureDomContentLoaded.bind(t))),r[e]=t,t})()}function l(r){return n(function(){var o=this,e=Array.prototype.slice.call(arguments,0),n={shim:o,method:r,args:e,ts:new Date};window._rollbarShims[this.shimId()].messages.push(n)})}var i=e(2),s=0,d=e(3),c=function(r,o){return new t(r,o)},p=d.bind(null,c);t.prototype.loadFull=function(r,o,e,t,a){var l=function(){var o;if(void 0===r._rollbarDidLoad){o=new Error("rollbar.js did not load");for(var e,n,t,l,i=0;e=r._rollbarShims[i++];)for(e=e.messages||[];n=e.shift();)for(t=n.args||[],i=0;i<t.length;++i)if(l=t[i],"function"==typeof l){l(o);break}}"function"==typeof a&&a(o)},i=!1,s=o.createElement("script"),d=o.getElementsByTagName("script")[0],c=d.parentNode;s.crossOrigin="",s.src=t.rollbarJsUrl,e||(s.async=!0),s.onload=s.onreadystatechange=n(function(){if(!(i||this.readyState&&"loaded"!==this.readyState&&"complete"!==this.readyState)){s.onload=s.onreadystatechange=null;try{c.removeChild(s)}catch(r){}i=!0,l()}}),c.insertBefore(s,d)},t.prototype.wrap=function(r,o,e){try{var n;if(n="function"==typeof o?o:function(){return o||{}},"function"!=typeof r)return r;if(r._isWrap)return r;if(!r._rollbar_wrapped&&(r._rollbar_wrapped=function(){e&&"function"==typeof e&&e.apply(this,arguments);try{return r.apply(this,arguments)}catch(e){var o=e;throw"string"==typeof o&&(o=new String(o)),o._rollbarContext=n()||{},o._rollbarContext._wrappedSource=r.toString(),window._rollbarWrappedError=o,o}},r._rollbar_wrapped._isWrap=!0,r.hasOwnProperty))for(var t in r)r.hasOwnProperty(t)&&(r._rollbar_wrapped[t]=r[t]);return r._rollbar_wrapped}catch(o){return r}};for(var u="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,captureEvent,captureDomContentLoaded,captureLoad".split(","),f=0;f<u.length;++f)t.prototype[u[f]]=l(u[f]);r.exports={setupShim:a,Rollbar:p}},function(r,o){"use strict";function e(r,o,e){if(r){var t;"function"==typeof o._rollbarOldOnError?t=o._rollbarOldOnError:r.onerror&&!r.onerror.belongsToShim&&(t=r.onerror,o._rollbarOldOnError=t);var a=function(){var e=Array.prototype.slice.call(arguments,0);n(r,o,t,e)};a.belongsToShim=e,r.onerror=a}}function n(r,o,e,n){r._rollbarWrappedError&&(n[4]||(n[4]=r._rollbarWrappedError),n[5]||(n[5]=r._rollbarWrappedError._rollbarContext),r._rollbarWrappedError=null),o.handleUncaughtException.apply(o,n),e&&e.apply(r,n)}function t(r,o,e){if(r){"function"==typeof r._rollbarURH&&r._rollbarURH.belongsToShim&&r.removeEventListener("unhandledrejection",r._rollbarURH);var n=function(r){var e,n,t;try{e=r.reason}catch(r){e=void 0}try{n=r.promise}catch(r){n="[unhandledrejection] error getting `promise` from event"}try{t=r.detail,!e&&t&&(e=t.reason,n=t.promise)}catch(r){t="[unhandledrejection] error getting `detail` from event"}e||(e="[unhandledrejection] error getting `reason` from event"),o&&o.handleUnhandledRejection&&o.handleUnhandledRejection(e,n)};n.belongsToShim=e,r._rollbarURH=n,r.addEventListener("unhandledrejection",n)}}function a(r,o,e){if(r){var n,t,a="EventTarget,Window,Node,ApplicationCache,AudioTrackList,ChannelMergerNode,CryptoOperation,EventSource,FileReader,HTMLUnknownElement,IDBDatabase,IDBRequest,IDBTransaction,KeyOperation,MediaController,MessagePort,ModalWindow,Notification,SVGElementInstance,Screen,TextTrack,TextTrackCue,TextTrackList,WebSocket,WebSocketWorker,Worker,XMLHttpRequest,XMLHttpRequestEventTarget,XMLHttpRequestUpload".split(",");for(n=0;n<a.length;++n)t=a[n],r[t]&&r[t].prototype&&l(o,r[t].prototype,e)}}function l(r,o,e){if(o.hasOwnProperty&&o.hasOwnProperty("addEventListener")){for(var n=o.addEventListener;n._rollbarOldAdd&&n.belongsToShim;)n=n._rollbarOldAdd;var t=function(o,e,t){n.call(this,o,r.wrap(e),t)};t._rollbarOldAdd=n,t.belongsToShim=e,o.addEventListener=t;for(var a=o.removeEventListener;a._rollbarOldRemove&&a.belongsToShim;)a=a._rollbarOldRemove;var l=function(r,o,e){a.call(this,r,o&&o._rollbar_wrapped||o,e)};l._rollbarOldRemove=a,l.belongsToShim=e,o.removeEventListener=l}}r.exports={captureUncaughtExceptions:e,captureUnhandledRejections:t,wrapGlobals:a}},function(r,o){"use strict";function e(r,o){this.impl=r(o,this),this.options=o,n(e.prototype)}function n(r){for(var o=function(r){return function(){var o=Array.prototype.slice.call(arguments,0);if(this.impl[r])return this.impl[r].apply(this.impl,o)}},e="log,debug,info,warn,warning,error,critical,global,configure,handleUncaughtException,handleUnhandledRejection,_createItem,wrap,loadFull,shimId,captureEvent,captureDomContentLoaded,captureLoad".split(","),n=0;n<e.length;n++)r[e[n]]=o(e[n])}e.prototype._swapAndProcessMessages=function(r,o){this.impl=r(this.options);for(var e,n,t;e=o.shift();)n=e.method,t=e.args,this[n]&&"function"==typeof this[n]&&("captureDomContentLoaded"===n||"captureLoad"===n?this[n].apply(this,[t[0],e.ts]):this[n].apply(this,t));return this},r.exports=e},function(r,o){"use strict";r.exports=function(r){return function(o){if(!o&&!window._rollbarInitialized){r=r||{};for(var e,n,t=r.globalAlias||"Rollbar",a=window.rollbar,l=function(r){return new a(r)},i=0;e=window._rollbarShims[i++];)n||(n=e.handler),e.handler._swapAndProcessMessages(l,e.messages);window[t]=n,window._rollbarInitialized=!0}}}}]);
 // End Rollbar Snippet
 </script>
 ```
 <!-- RemovePrev -->
 <!-- EditableTextAreaEnd -->
 
-If you're running Rollbar on an environment besides production, change the ```environment``` value to something else (e.g. "staging"). See below for more configuration options.
+If you're running Rollbar on an environment besides production, change the `environment` value to something else (e.g. "staging"). See below for more configuration options.
 
 ### Test your installation
 
 1. Navigate your browser to a page that has the above code installed
-2. Type the following code into the console and press enter: ```window.onerror("TestRollbarError: testing window.onerror", window.location.href)```
+2. Type the following code into the console and press enter: `window.onerror("TestRollbarError: testing window.onerror", window.location.href)`
 
 This simulates an uncaught error. It should appear in the Rollbar dashboard within a few seconds.
 
 ## Usage
 
-In addition to catching top-level errors, you can send caught errors or custom log messages. All of the following methods are fully-asynchronous and safe to call anywhere in your code after the ```<script>``` tag above.
+In addition to catching top-level errors, you can send caught errors or custom log messages. All of the following methods are fully-asynchronous and safe to call anywhere in your code after the `<script>` tag above.
 
 ```js
 // Caught errors
@@ -94,7 +94,7 @@ Rollbar.configure({payload: {fingerprint: "custom fingerprint to override groupi
 ```
 
 For convenience, the configure method also accepts a second parameter of data to be
-automatically nested under the paylaod key, for example:
+automatically nested under the payload key, for example:
 
 ```js
 Rollbar.configure({enabled: true, payload: {somekey: 'somevalue'}}, {fingerprint: 'abc123'})
@@ -142,7 +142,7 @@ Rollbar.configure(
 
 ### Using Segment
 
-If you're using Rollbar via Segment, you will get automatic detection of uncaught errors, but Rollbar methods are not available. This is because Segment loads the Rollbar snippet asynchronously, so they may not be defined. To use them, you will need to include the Rollbar snippet directly in your `<head>`, rather than loading it through Segment.
+If you're using Rollbar via Segment, you will get automatic detection of uncaught errors, but Rollbar methods are not available unless you use the Device-based Connection Mode option. This is because Segment loads the Rollbar snippet asynchronously, so they may not be defined. If you use the Device-based Connection Mode option, Segment will be able to load the Rollbar script on the client and you can use Rollbar methods. To enable this, go to the destination settings pane in the app and select Device-based Connection Mode. Otherwise, in order to use Rollbar methods, you will need to include the Rollbar snippet directly in your `<head>`, rather than loading it through Segment.
 
 ### Using in a Chrome Extension
 
@@ -150,6 +150,20 @@ To use rollbar.js inside a Chrome extension, there are some very minor changes y
 
 If your source code is minified and you want to use our Source Maps feature, you need to follow the same steps as outlined in [using source maps on many domains](/docs/source-maps/#using-source-maps-on-many-domains).
 
+### Upgrading
+
+The simplest approach to upgrading from one version of to the next is to replace the snippet with
+the one in this document. Depending on the timing of the release and CDNJS latency, it is possible
+that the snippet has a URL pointing to the full Rollbar library which will return a 404. This
+happens because of how CDNJS operates. The URL in the snippet is of the form:
+
+```
+https://cdnjs.cloudflare.com/ajax/libs/rollbar.js/X.X.X/rollbar.min.js
+```
+
+where `X.X.X` would be replaced with the version number of the latest release. Prior to pushing to
+production, we recommend ensuring that the URL with the version you are upgrading to returns a
+proper response.
 
 ## Javascript Framework Support
 
@@ -169,10 +183,17 @@ Setting the `captureUncaught` option to true will result in reporting all uncaug
 Rollbar by default. Additionally, one can catch any Angular-specific exceptions reported through the
 `@angular/core/ErrorHandler` component by setting a custom `ErrorHandler` class:
 
+
 ```js
 import * as Rollbar from 'rollbar';
 import { BrowserModule } from '@angular/platform-browser';
-import { NgModule, ErrorHandler } from '@angular/core';
+import {
+  Injectable,
+  Injector,
+  InjectionToken,
+  NgModule,
+  ErrorHandler
+} from '@angular/core';
 import { AppComponent } from './app.component';
 
 const rollbarConfig = {
@@ -183,12 +204,19 @@ const rollbarConfig = {
 
 @Injectable()
 export class RollbarErrorHandler implements ErrorHandler {
-  constructor(private injector: Injector) { }
+  constructor(private injector: Injector) {}
+
   handleError(err:any) : void {
-    var rollbar = this.injector.get(Rollbar);
+    var rollbar = this.injector.get(RollbarService);
     rollbar.error(err.originalError || err);
   }
 }
+
+export function rollbarFactory() {
+    return new Rollbar(rollbarConfig);
+}
+
+export const RollbarService = new InjectionToken<Rollbar>('rollbar');
 
 @NgModule({
   imports: [ BrowserModule ],
@@ -196,15 +224,40 @@ export class RollbarErrorHandler implements ErrorHandler {
   bootstrap: [ AppComponent ],
   providers: [
     { provide: ErrorHandler, useClass: RollbarErrorHandler },
-    { provide: Rollbar,
-      useFactory: () => {
-        return new Rollbar(rollbarConfig)
-      }
-    }
+    { provide: RollbarService, useFactory: rollbarFactory }
   ]
 })
 export class AppModule { }
 ```
+
+#### Troubleshooting
+
+If your system consists of the following
+
+```
+@angular/cli: 1.4.3
+node: 6.11.3
+os: darwin x64
+@angular/animations: 4.4.3
+@angular/cli: 1.4.3
+@angular/common: 4.4.3
+@angular/compiler: 4.4.3
+@angular/compiler-cli: 4.4.3
+@angular/core: 4.4.3
+@angular/forms: 4.4.3
+@angular/http: 4.4.3
+@angular/platform-browser: 4.4.3
+@angular/platform-browser-dynamic: 4.4.3
+@angular/router: 4.4.3
+@angular/language-service: 4.4.3
+typescript: 2.3.4
+```
+
+there are some further steps you may need to implement in order to get rollbar.js working for you.
+
+When compiling, if you get the error `Error encountered resolving symbol values statically. Function calls are not supported. Consider replacing the function or lambda with a reference to an exported function`, then the inline factory function in providers should be an exported function.
+
+Another error you may encounter when compiling is `Property 'error' does not exist on type '{}'.` In this case, the RollbarErrorHandler `var rollbar` needs to have a type explicitly defined, i.e. `var rollbar: Rollbar`.
 
 ### Ember
 
@@ -266,7 +319,7 @@ If you would like to see what is being sent to Rollbar in your console, use the
 ```js
 var _rollbarConfig = {
   accessToken: "POST_CLIENT_ITEM_ACCESS_TOKEN",
-  verbose: true, // This will now log to console.log, as well as Rollbar  
+  verbose: true, // This will now log to console.log, as well as Rollbar
   captureUncaught: true,
   captureUnhandledRejections: false,
   payload: {
@@ -316,7 +369,7 @@ is omitted, then we use the default value for that key. Setting
 `autoInstrument` to `true` is equivalent to passing all of these keys with the values of `true`.
 Hence,
 
-```
+```js
 _rollbarConfig = {
   ...
   autoInstrument: true
@@ -326,7 +379,7 @@ _rollbarConfig = {
 
 is equivalent to
 
-```
+```js
 _rollbarConfig = {
   ...
   autoInstrument: {
@@ -342,7 +395,7 @@ _rollbarConfig = {
 
 Likewise,
 
-```
+```js
 _rollbarConfig = {
   ...
   autoInstrument: {
@@ -355,7 +408,7 @@ _rollbarConfig = {
 
 is equivalent to
 
-```
+```js
 _rollbarConfig = {
   ...
   autoInstrument: {
@@ -406,7 +459,7 @@ the queue from 100, currently you can not increase the size of the queue beyond 
 
 Each event is stored as an object of the form
 
-```
+```json
 {
   level: "debug" | "info" | "warning" | "error" | "critical"
   type: string
@@ -422,6 +475,18 @@ store only the smallest amount of information necessary to aid in understanding.
 have concerns about memory usage, you can turn the collection of some or all events off, or limit
 the size of the queue of events that we store.
 
+Also you can filter out telemetry events with an optional test function `filterTelemetry`. Telemetry event gets passed as the first argument and boolean return value is expected. Any event that matches the test is not added to the queue. One common use case is to filter out spammy XHR requests:
+
+```js
+{
+  filterTelemetry: function(e) {
+    return e.type === 'network'
+      && (e.body.subtype === 'xhr' || e.body.subtype === 'fetch')
+      && e.body.url.indexOf('https://spammer.com') === 0;
+  }
+}
+```
+
 The data that is collected is included in the payload and also goes through the same scrubbing
 process described elsewhere. However, we also provide two additional options for scrubbing of
 telemetry specific data related to inputs in the dom. The first options is `scrubTelemetryInputs`.
@@ -431,7 +496,7 @@ course grained on/off switch which you can use to ensure that no input data is l
 The second options is a function `telemetryScrubber`. This function should take one argument which
 is a description of a dom node of the form:
 
-```
+```json
 {
   tagName: string
   id: string | undefined
@@ -476,7 +541,7 @@ There are 2 types of configuration data -- context and payload. Context provides
 
 ### Configuration levels
 
-Rollbar can be configured at 3 different levels -- global, notifier and scope. All configuration is inherited at each level, so global configuration affects all notifiers while notifier configuration only affects the notifier being configured and any child notifiers created after the call to `configure()`.
+Rollbar can be configured at 2 different levels -- global and notifier. All configuration is inherited at each level, so global configuration affects all notifiers while notifier configuration only affects the notifier being configured.
 
 #### Global configuration
 
@@ -519,8 +584,8 @@ Rollbar.info('this will not get reported to Rollbar since it\'s at the "info" le
 // Set the person information to be sent with all items to Rollbar
 Rollbar.configure({payload: {person: {id: 12345, email: 'stewie@familyguy.com'}}});
 
-// Add the following payload data to all items sent to Rollbar from this
-// notifier or any created using window.Rollbar.scope()
+// Add the following payload data to all items sent to Rollbar
+// from this notifier
 Rollbar.configure({payload: {sessionId: "asdf12345"}});
 
 // Scrub any payload keys/query parameters named 'creditCardNumber'
@@ -545,68 +610,73 @@ Default: `60`
 
 <dt>maxItems
 </dt>
-<dd>Max number of items to report per page load. When this limit is reached, an additional item will be reported stating that the limit was reached. Like `itemsPerMinute`, this limit counts uncaught errors (reported through ```window.onerror```) and any direct calls to ```Rollbar.log/debug/info/warning/error/critical()```.
+<dd>Max number of items to report per page load. When this limit is reached, an additional item will be reported stating that the limit was reached. Like `itemsPerMinute`, this limit counts uncaught errors (reported through `window.onerror`) and any direct calls to `Rollbar.log/debug/info/warning/error/critical()`.
 
-Default: ```0``` (no limit)
+Default: `0` (no limit)
 </dd>
 </dl>
 
 ### Context
 
-  <dl>
+<dl>
 
 <dt>checkIgnore
 </dt>
-<dd>An optional function that will be used to ignore uncaught exceptions based on its return value. The function signature should be: ```function checkIgnore(isUncaught, args, payload) { ... }``` and should return ```true``` if the error should be ignored.
+<dd>An optional function that will be used to ignore uncaught exceptions based on its return value. The function signature should be: `function checkIgnore(isUncaught, args, payload) { ... }` and should return `true` if the error should be ignored.
 
-Default: ```null```
+Default: `null`
 
-- isUncaught: ```true``` if the error being reported is from the ```window.onerror``` hook.
-- args: The arguments to ```Rollbar.log/debug/info/warning/error/critical()```.  In the case of unhandled rejections, the last parameter is originating `Promise`.
+- isUncaught: `true` if the error being reported is from the `window.onerror` hook.
+- args: The arguments to `Rollbar.log/debug/info/warning/error/critical()`.  In the case of unhandled rejections, the last parameter is originating `Promise`.
 - payload: The javascript object that is about to be sent to Rollbar. This will contain all of the context and payload information for this notifier and error. This parameter is useful for advanced ignore functionality.
 </dd>
 
 <dt>enabled
 </dt>
-<dd>If set to ```false```, no data will be sent to Rollbar for this notifier.
-  Note: callbacks for errors will not be called if this is set to ```false```.
+<dd>If set to `false`, no data will be sent to Rollbar for this notifier.
+  Note: callbacks for errors will not be called if this is set to `false`.
 
-Default: ```true```
+Default: `true`
+</dd>
+
+<dt>hostBlackList
+</dt>
+<dd>Check payload frames for blacklisted URL patterns. This is an array of strings, each of which get compiled to a `RegExp`. If a file in the trace matches one of these URL patterns, the payload is ignored.
 </dd>
 
 <dt>hostWhiteList
 </dt>
-<dd>Check payload frames for white listed domains. This is an array of strings, each of which get compiled to a `Regexp`. If no file in the trace matches one of these domains the payload is ignored.
+<dd>Check payload frames for whitelisted URL patterns. This is an array of strings, each of which get compiled to a `RegExp`. If a file in the trace matches one of these URL patterns, the payload is accepted.
 </dd>
 
 <dt>logLevel
 </dt>
-<dd>The severity level used for calls to ```Rollbar.log()```. One of ```"critical"```, ```"error"```, ```"warning"```, ```"info"```, ```"debug"```.
+<dd>The severity level used for calls to `Rollbar.log()`. One of `"critical"`, `"error"`, `"warning"`, `"info"`, `"debug"`.
 
-Default: ```"debug"```
+Default: `"debug"`
 </dd>
 
 <dt>reportLevel
 </dt>
-<dd>Used to filter out which messages will get reported to Rollbar. If set to ```"error"```, only ```"error"``` or higher serverity level items will be sent to Rollbar.
+<dd>Used to filter out which messages will get reported to Rollbar. If set to `"error"`, only `"error"` or higher serverity level items will be sent to Rollbar.
 
-Default: ```"warning"```
+Default: `"warning"`
 </dd>
 
 <dt>scrubFields
 </dt>
 <dd>A list containing names of keys/fields/query parameters to scrub. Scrubbed fields will be normalized to all `*` before being reported to Rollbar. This is useful for sensitive information that you do not want to send to Rollbar. e.g. User tokens
 
-Default: ```["passwd", "password", "secret", "confirm_password", "password_confirmation"]```
+Default: `["passwd", "password", "secret", "confirm_password", "password_confirmation"]`
 </dd>
 
 <dt>transform
 </dt>
 <dd>Optional function to modify the payload before sending to Rollbar.
 
-Default: ```null```
+Default: `null`
 
-```javascript
+```js
 // For example:
 // Set a custom fingerprint
 var transformer = function(payload) {
@@ -626,14 +696,14 @@ var _rollbarConfig = {
 </dt>
 <dd>The severity level used when uncaught errors are reported to Rollbar.
 
-Default: ```"error"```
+Default: `"error"`
 </dd>
 
 <dt>endpoint
 </dt>
 <dd>The url to which items get POSTed. This is mostly relevant to our enterprise customers. You will, however, need this if you're proxying the requests through your own server, or you're an enterprise customer.
 
-Default: ```'https://api.rollbar.com/api/1/'```
+Default: `'https://api.rollbar.com/api/1/item'`
 </dd>
 
 <dt>autoInstrument
@@ -642,7 +712,7 @@ Default: ```'https://api.rollbar.com/api/1/'```
 then we collect nothing, if it is true we collect everything, otherwise we do not collect events for
 the keys with a false value. The default structure for this object is:
 
-```
+```json
 {
   network: true,
   log: true,
@@ -651,6 +721,13 @@ the keys with a false value. The default structure for this object is:
   connectivity: true
 }
 ```
+</dd>
+
+<dt>sendConfig</dt>
+<dd>Include the configuration for Rollbar with each item sent to Rollbar. This can aid in debugging
+configuration issues.
+
+Default: false
 </dd>
 </dl>
 
@@ -673,7 +750,7 @@ Rollbar.configure({
 
 <dt>person
 </dt>
-<dd>An object identifying the logged-in user, containing an ```id``` (required), and optionally a ```username``` and ```email``` (all strings). Passing this will allow you to see which users were affected by particular errors, as well as all the errors that a particular user experienced.
+<dd>An object identifying the logged-in user, containing an `id` (required), and optionally a `username` and `email` (all strings). Passing this will allow you to see which users were affected by particular errors, as well as all the errors that a particular user experienced.
 </dd>
 
 <dt>context
@@ -686,22 +763,24 @@ Rollbar.configure({
 <dd>
   An object describing properties of the client device reporting the error.
 
-  This object should have a key that points to another object, ```javascript``` which describes properties of the javascript code/environment to Rollbar.
+  This object should have a key that points to another object, `javascript` which describes properties of the javascript code/environment to Rollbar.
 
-  ```client.javascript``` supports the following properties:
+  `client.javascript` supports the following properties:
 </dd>
 
   <dl>
 <dt>code_version
 </dt>
 <dd>Version control number (i.e. git SHA) of the current revision. Used for linking filenames in stacktraces to GitHub.
+
+  Note: `codeVersion` will not work, you must use `code_version`.
 </dd>
 
 <dt>source_map_enabled
 </dt>
 <dd>When `true`, the Rollbar service will attempt to find and apply source maps to all frames in the stack trace.
 
-Default: ```false```
+Default: `false`
 
 </dd>
 
@@ -709,7 +788,7 @@ Default: ```false```
 </dt>
 <dd>When `true`, the Rollbar service will attempt to apply source maps to frames even if they are missing column numbers. Works best when the minified javascript file is generated using newlines instead of semicolons.
 
-Default: ```false```
+Default: `false`
 </dd>
 
   E.g.
@@ -743,7 +822,7 @@ Rollbar.configure({
 </dt>
 <dd>The name of the branch of the code that is running. Used for linking filenames in stacktraces to GitHub.
 
-Default: ```"master"```
+Default: `"master"`
 
 </dd>
 
@@ -751,9 +830,9 @@ Default: ```"master"```
 </dt>
 <dd>The hostname of the machine that rendered the page
 
-e.g. ```"web1.mysite.com"```
+e.g. `"web1.mysite.com"`
 
-e.g. in Python, use ```socket.gethostname()```
+e.g. in Python, use `socket.gethostname()`
 
 </dd>
 
@@ -773,7 +852,6 @@ Rollbar.configure({
 });
 
 ```
-
 </dd>
 
 </dl>
@@ -781,7 +859,7 @@ Rollbar.configure({
 
 ### More info
 
-Check out the API reference below for more information on how to use ```global/configure/scope()```.
+Check out the API reference below for more information on how to use `global/configure`.
 
 
 ## API Reference
@@ -933,7 +1011,7 @@ If you use jQuery 1.7 and up, you can include a plugin script that will instrume
 <!-- EditableTextAreaEnd -->
 
 The plugin will also automatically report any AJAX errors using jQuery's `ajaxError()` handler. You can disable this functionality by configuring the Rollbar notifier with the following:
-```javascript
+```js
 window.Rollbar.configure({
   plugins: {
     jquery: {
@@ -1007,14 +1085,14 @@ var rollbar = new Rollbar({
 // log a generic message and send to rollbar
 rollbar.log('Hello world!');
 ```
-Setting the ```captureUncaught``` option to true will register Rollbar as a handler for
+Setting the `captureUncaught` option to true will register Rollbar as a handler for
 any uncaught exceptions in your Node process.
 
-Similarly, setting the ```captureUnhandledRejections``` option to true will register Rollbar as a
+Similarly, setting the `captureUnhandledRejections` option to true will register Rollbar as a
 handler for any unhandled Promise rejections in your Node process.
 
 <!-- RemoveNextIfProject -->
-Be sure to replace ```POST_SERVER_ITEM_ACCESS_TOKEN``` with your project's ```post_server_item``` access token, which you can find in the Rollbar.com interface.
+Be sure to replace `POST_SERVER_ITEM_ACCESS_TOKEN` with your project's `post_server_item` access token, which you can find in the Rollbar.com interface.
 
 ## Server Installation
 
@@ -1118,7 +1196,7 @@ Other options can be passed into the constructor as a collection. E.g.:
 new Rollbar({
   accessToken: "POST_SERVER_ITEM_ACCESS_TOKEN",
   environment: "staging",
-  endpoint: "https://api.rollbar.com/api/1/"
+  endpoint: "https://api.rollbar.com/api/1/item"
 });
 ```
 
@@ -1395,7 +1473,7 @@ exports.handler = (event, context, callback) => {
 
 The following browser versions are supported on all major desktop and mobile operating systems:
 
-IE 8+, Firefox 40+, Chrome 44+, Edge 10+, Opera 12+, and Safari 8+. 
+IE 8+, Firefox 40+, Chrome 44+, Edge 10+, Opera 12+, and Safari 8+.
 
 ## Help / Support
 
@@ -1418,7 +1496,7 @@ To run the tests, run `make test`
 ## Contributing
 
 1. [Fork it](https://github.com/rollbar/rollbar.js)
-2. Create your feature branch (```git checkout -b my-new-feature```).
-3. Commit your changes (```git commit -am 'Added some feature'```)
-4. Push to the branch (```git push origin my-new-feature```)
+2. Create your feature branch (`git checkout -b my-new-feature`).
+3. Commit your changes (`git commit -am 'Added some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request

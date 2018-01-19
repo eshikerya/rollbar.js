@@ -428,7 +428,7 @@
 	    .addTransform(sharedTransforms.addMessageWithError)
 	    .addTransform(sharedTransforms.addTelemetryData)
 	    .addTransform(transforms.scrubPayload)
-	    .addTransform(transforms.userTransform)
+	    .addTransform(sharedTransforms.userTransform(logger))
 	    .addTransform(sharedTransforms.itemToPayload);
 	}
 	
@@ -462,12 +462,12 @@
 	/* global __DEFAULT_ENDPOINT__:false */
 	
 	var defaultOptions = {
-	  version: ("2.2.8"),
+	  version: ("2.3.7"),
 	  scrubFields: (["pw","pass","passwd","password","secret","confirm_password","confirmPassword","password_confirmation","passwordConfirmation","access_token","accessToken","secret_key","secretKey","secretToken"]),
 	  logLevel: ("debug"),
 	  reportLevel: ("debug"),
 	  uncaughtErrorLevel: ("error"),
-	  endpoint: ("api.rollbar.com/api/1/"),
+	  endpoint: ("api.rollbar.com/api/1/item/"),
 	  verbose: false,
 	  enabled: true
 	};
@@ -497,6 +497,7 @@
 	function Rollbar(options, api, logger, platform) {
 	  this.options = _.extend(true, {}, options);
 	  this.logger = logger;
+	  Rollbar.rateLimiter.configureGlobal(this.options);
 	  Rollbar.rateLimiter.setPlatformOptions(platform, this.options);
 	  this.queue = new Queue(Rollbar.rateLimiter, api, logger, this.options);
 	  this.notifier = new Notifier(this.queue, this.options);
@@ -525,6 +526,7 @@
 	    payload = {payload: payloadData};
 	  }
 	  this.options = _.extend(true, {}, oldOptions, options, payload);
+	  this.global(this.options);
 	  return this;
 	};
 	
@@ -577,6 +579,9 @@
 	
 	Rollbar.prototype._log = function(defaultLevel, item) {
 	  if (this._sameAsLastError(item)) {
+	    if (item.callback) {
+	      item.callback();
+	    }
 	    return;
 	  }
 	  try {
@@ -586,8 +591,8 @@
 	      delete item.callback;
 	    }
 	    item.level = item.level || defaultLevel;
-	    item.telemetryEvents = this.telemeter.copyEvents();
 	    this.telemeter._captureRollbarItem(item);
+	    item.telemetryEvents = this.telemeter.copyEvents();
 	    this.notifier.log(item, callback);
 	  } catch (e) {
 	    this.logger.error(e)
@@ -689,6 +694,7 @@
 	  this.perMinCounter++;
 	
 	  var shouldSend = !checkRate(item, globalRateLimit, this.counter);
+	  shouldSend = shouldSend && !checkRate(item, globalRateLimitPerMin, this.perMinCounter);
 	  return shouldSendValue(this.platform, this.platformOptions, null, shouldSend, globalRateLimit);
 	};
 	
@@ -700,7 +706,7 @@
 	/* Helpers */
 	
 	function checkRate(item, limit, counter) {
-	  return !item.ignoreRateLimit && limit >= 1 && counter >= limit;
+	  return !item.ignoreRateLimit && limit >= 1 && counter > limit;
 	}
 	
 	function shouldSendValue(platform, options, error, shouldSend, globalRateLimit) {
@@ -737,6 +743,9 @@
 	    item.notifier.name = 'rollbar-browser-js';
 	  } else if (platform === 'server') {
 	    item.framework = options.framework || 'node-js';
+	    item.notifier.name = options.notifier.name;
+	  } else if (platform === 'react-native') {
+	    item.framework = options.framework || 'react-native';
 	    item.notifier.name = options.notifier.name;
 	  }
 	  return item;
@@ -1169,13 +1178,14 @@
 	    }
 	  }
 	
+	  var result = isObj ? {} : [];
 	  for (i = 0; i < keys.length; ++i) {
 	    k = keys[i];
 	    v = obj[k];
-	    obj[k] = func(k, v, seen);
+	    result[k] = func(k, v, seen);
 	  }
 	
-	  return obj;
+	  return (keys.length != 0) ? result : obj;
 	}
 	
 	function redact() {
@@ -1558,15 +1568,14 @@
 	    }
 	  }
 	
-	  traverse(data, scrubber, []);
-	  return data;
+	  return traverse(data, scrubber, []);
 	}
 	
 	function _getScrubFieldRegexs(scrubFields) {
 	  var ret = [];
 	  var pat;
 	  for (var i = 0; i < scrubFields.length; ++i) {
-	    pat = '\\[?(%5[bB])?' + scrubFields[i] + '\\[?(%5[bB])?\\]?(%5[dD])?';
+	    pat = '^\\[?(%5[bB])?' + scrubFields[i] + '\\[?(%5[bB])?\\]?(%5[dD])?$';
 	    ret.push(new RegExp(pat, 'i'));
 	  }
 	  return ret;
@@ -2640,7 +2649,8 @@
 	}
 	
 	Telemeter.prototype.configure = function(options) {
-	  this.options = _.extend(true, {}, options);
+	  var oldOptions = this.options;
+	  this.options = _.extend(true, {}, oldOptions, options);
 	  var maxTelemetryEvents = this.options.maxTelemetryEvents || MAX_EVENTS;
 	  var newMaxEvents = Math.max(0, Math.min(maxTelemetryEvents, MAX_EVENTS));
 	  var deleteCount = 0;
@@ -2666,6 +2676,15 @@
 	  if (rollbarUUID) {
 	    e.uuid = rollbarUUID;
 	  }
+	
+	  try {
+	    if (_.isFunction(this.options.filterTelemetry) && this.options.filterTelemetry(e)) {
+	      return false;
+	    }
+	  } catch (e) {
+	    this.options.filterTelemetry = null;
+	  }
+	
 	  this.push(e);
 	  return e;
 	};
@@ -2789,7 +2808,7 @@
 	
 	var defaultOptions = {
 	  hostname: 'api.rollbar.com',
-	  path: '/api/1',
+	  path: '/api/1/item/',
 	  search: null,
 	  version: '1',
 	  protocol: 'https:',
@@ -2807,7 +2826,7 @@
 	 *    accessToken: the accessToken to use for posting items to rollbar
 	 *    endpoint: an alternative endpoint to send errors to
 	 *        must be a valid, fully qualified URL.
-	 *        The default is: https://api.rollbar.com/api/1
+	 *        The default is: https://api.rollbar.com/api/1/item
 	 *    proxy: if you wish to proxy requests provide an object
 	 *        with the following keys:
 	 *          host or hostname (required): foo.example.com
@@ -2830,7 +2849,7 @@
 	 * @param callback
 	 */
 	Api.prototype.postItem = function(data, callback) {
-	  var transportOptions = helpers.transportOptions(this.transportOptions, '/item/', 'POST');
+	  var transportOptions = helpers.transportOptions(this.transportOptions, 'POST');
 	  var payload = helpers.buildPayload(this.accessToken, data, this.jsonBackup);
 	  this.transport.post(this.accessToken, transportOptions, payload, callback);
 	};
@@ -2904,11 +2923,11 @@
 	  };
 	}
 	
-	function transportOptions(transport, path, method) {
+	function transportOptions(transport, method) {
 	  var protocol = transport.protocol || 'https:';
 	  var port = transport.port || (protocol === 'http:' ? 80 : protocol === 'https:' ? 443 : undefined);
 	  var hostname = transport.hostname;
-	  path = appendPathToPath(transport.path, path);
+	  var path = transport.path;
 	  if (transport.search) {
 	    path = path + transport.search;
 	  }
@@ -3110,14 +3129,29 @@
 	    window.removeEventListener('unhandledrejection', window._rollbarURH);
 	  }
 	
-	  var rejectionHandler = function (event) {
-	    var reason = event.reason;
-	    var promise = event.promise;
-	    var detail = event.detail;
-	
-	    if (!reason && detail) {
-	      reason = detail.reason;
-	      promise = detail.promise;
+	  var rejectionHandler = function (evt) {
+	    var reason, promise, detail;
+	    try {
+	      reason = evt.reason;
+	    } catch (e) {
+	      reason = undefined;
+	    }
+	    try {
+	      promise = evt.promise;
+	    } catch (e) {
+	      promise = '[unhandledrejection] error getting `promise` from event';
+	    }
+	    try {
+	      detail = evt.detail;
+	      if (!reason && detail) {
+	        reason = detail.reason;
+	        promise = detail.promise;
+	      }
+	    } catch (e) {
+	      detail = '[unhandledrejection] error getting `detail` from event';
+	    }
+	    if (!reason) {
+	      reason = '[unhandledrejection] error getting `reason` from event';
 	    }
 	
 	    if (handler && handler.handleUnhandledRejection) {
@@ -3546,16 +3580,18 @@
 	    if (!window) {
 	      return callback(null, item);
 	    }
+	    var nav = window.navigator || {};
+	    var scr = window.screen || {};
 	    _.set(item, 'data.client', {
 	      runtime_ms: item.timestamp - window._rollbarStartTime,
 	      timestamp: Math.round(item.timestamp / 1000),
 	      javascript: {
-	        browser: window.navigator.userAgent,
-	        language: window.navigator.language,
-	        cookie_enabled: window.navigator.cookieEnabled,
+	        browser: nav.userAgent,
+	        language: nav.language,
+	        cookie_enabled: nav.cookieEnabled,
 	        screen: {
-	          width: window.screen.width,
-	          height: window.screen.height
+	          width: scr.width,
+	          height: scr.height
 	        }
 	      }
 	    });
@@ -3656,7 +3692,7 @@
 	        method: (!stackFrame.func || stackFrame.func === '?') ? '[anonymous]' : stackFrame.func,
 	        colno: stackFrame.column
 	      };
-	      if (frame.method && frame.method.endsWith && frame.method.endsWith('._rollbar_wrapped')) {
+	      if (frame.method && frame.method.endsWith && frame.method.endsWith('_rollbar_wrapped')) {
 	        continue;
 	      }
 	
@@ -3706,23 +3742,8 @@
 	
 	function scrubPayload(item, options, callback) {
 	  var scrubFields = options.scrubFields;
-	  _.scrub(item.data, scrubFields);
+	  item.data = _.scrub(item.data, scrubFields);
 	  callback(null, item);
-	}
-	
-	function userTransform(item, options, callback) {
-	  var newItem = _.extend(true, {}, item);
-	  try {
-	    if (_.isFunction(options.transform)) {
-	      options.transform(newItem.data);
-	    }
-	  } catch (e) {
-	    options.transform = null;
-	    logger.error('Error while calling custom transform() function. Removing custom transform().', e);
-	    callback(null, item);
-	    return;
-	  }
-	  callback(null, newItem);
 	}
 	
 	module.exports = {
@@ -3733,8 +3754,7 @@
 	  addClientInfo: addClientInfo,
 	  addPluginInfo: addPluginInfo,
 	  addBody: addBody,
-	  scrubPayload: scrubPayload,
-	  userTransform: userTransform
+	  scrubPayload: scrubPayload
 	};
 
 
@@ -3809,7 +3829,7 @@
 	
 	
 	function guessErrorClass(errMsg) {
-	  if (!errMsg) {
+	  if (!errMsg || !errMsg.match) {
 	    return ['Unknown error. There was no error message to display.', ''];
 	  }
 	  var errClassMatch = errMsg.match(ERR_CLASS_REGEXP);
@@ -4201,10 +4221,28 @@
 	  callback(null, item);
 	}
 	
+	function userTransform(logger) {
+	  return function(item, options, callback) {
+	    var newItem = _.extend(true, {}, item);
+	    try {
+	      if (_.isFunction(options.transform)) {
+	        options.transform(newItem.data);
+	      }
+	    } catch (e) {
+	      options.transform = null;
+	      logger.error('Error while calling custom transform() function. Removing custom transform().', e);
+	      callback(null, item);
+	      return;
+	    }
+	    callback(null, newItem);
+	  }
+	}
+	
 	module.exports = {
 	  itemToPayload: itemToPayload,
 	  addTelemetryData: addTelemetryData,
-	  addMessageWithError: addMessageWithError
+	  addMessageWithError: addMessageWithError,
+	  userTransform: userTransform
 	};
 
 
@@ -4441,6 +4479,12 @@
 	    this.autoInstrument = _.extend(true, {}, defaults, autoInstrument);
 	  }
 	  this.instrument(oldSettings);
+	  if (options.scrubTelemetryInputs !== undefined) {
+	    this.scrubTelemetryInputs = !!options.scrubTelemetryInputs;
+	  }
+	  if (options.telemetryScrubber !== undefined) {
+	    this.telemetryScrubber = options.telemetryScrubber;
+	  }
 	};
 	
 	Instrumenter.prototype.instrument = function(oldSettings) {

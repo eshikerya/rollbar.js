@@ -34,6 +34,24 @@ describe('capture', function() {
   });
 });
 
+
+describe('filterTelemetry', function() {
+  it('should filter out events that don\'t match the test', function(done) {
+    var options = {
+      filterTelemetry: function(e) {
+        return e.type === 'network'
+          && (e.body.subtype === 'xhr' || e.body.subtype === 'fetch')
+          && e.body.url.indexOf('https://spammer.com') === 0;
+      }
+    };
+    var t = new Telemeter(options);
+    var event = t.capture('network', {url: 'https://spammer.com'}, 'debug');
+    expect(event).to.be.false;
+
+    done();
+  });
+});
+
 describe('configure', function() {
   it('should truncate events to new max', function(done) {
     var options = {maxTelemetryEvents: 5};
@@ -63,6 +81,23 @@ describe('configure', function() {
       t.capture('network', {url: 'a.com'}, 'debug');
     }
     expect(t.queue.length).to.equal(5);
+    done();
+  });
+  it('does not drop existing options that are not passed to configure', function(done) {
+    var options = {maxTelemetryEvents: 3};
+    var t = new Telemeter(options);
+
+    for (var i = 0; i < 7; i++) {
+      t.capture('network', {url: 'a.com'}, 'debug');
+    }
+
+    expect(t.queue.length).to.equal(3);
+    t.configure({});
+    expect(t.queue.length).to.equal(3);
+    for (var i = 0; i < 7; i++) {
+      t.capture('network', {url: 'a.com'}, 'debug');
+    }
+    expect(t.queue.length).to.equal(3);
     done();
   });
 });

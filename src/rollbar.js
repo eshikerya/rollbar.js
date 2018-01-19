@@ -14,6 +14,7 @@ var _ = require('./utility');
 function Rollbar(options, api, logger, platform) {
   this.options = _.extend(true, {}, options);
   this.logger = logger;
+  Rollbar.rateLimiter.configureGlobal(this.options);
   Rollbar.rateLimiter.setPlatformOptions(platform, this.options);
   this.queue = new Queue(Rollbar.rateLimiter, api, logger, this.options);
   this.notifier = new Notifier(this.queue, this.options);
@@ -42,6 +43,7 @@ Rollbar.prototype.configure = function(options, payloadData) {
     payload = {payload: payloadData};
   }
   this.options = _.extend(true, {}, oldOptions, options, payload);
+  this.global(this.options);
   return this;
 };
 
@@ -94,6 +96,9 @@ Rollbar.prototype.captureLoad = function(ts) {
 
 Rollbar.prototype._log = function(defaultLevel, item) {
   if (this._sameAsLastError(item)) {
+    if (item.callback) {
+      item.callback();
+    }
     return;
   }
   try {
@@ -103,8 +108,8 @@ Rollbar.prototype._log = function(defaultLevel, item) {
       delete item.callback;
     }
     item.level = item.level || defaultLevel;
-    item.telemetryEvents = this.telemeter.copyEvents();
     this.telemeter._captureRollbarItem(item);
+    item.telemetryEvents = this.telemeter.copyEvents();
     this.notifier.log(item, callback);
   } catch (e) {
     this.logger.error(e)

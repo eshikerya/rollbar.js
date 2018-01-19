@@ -63,16 +63,18 @@ function addClientInfo(window) {
     if (!window) {
       return callback(null, item);
     }
+    var nav = window.navigator || {};
+    var scr = window.screen || {};
     _.set(item, 'data.client', {
       runtime_ms: item.timestamp - window._rollbarStartTime,
       timestamp: Math.round(item.timestamp / 1000),
       javascript: {
-        browser: window.navigator.userAgent,
-        language: window.navigator.language,
-        cookie_enabled: window.navigator.cookieEnabled,
+        browser: nav.userAgent,
+        language: nav.language,
+        cookie_enabled: nav.cookieEnabled,
         screen: {
-          width: window.screen.width,
-          height: window.screen.height
+          width: scr.width,
+          height: scr.height
         }
       }
     });
@@ -156,6 +158,10 @@ function addBodyTrace(item, options, callback) {
     stack = item._unhandledStackInfo.stack;
   }
   if (stack) {
+    if (stack.length === 0) {
+      trace.exception.stack = stackInfo.rawStack;
+      trace.exception.raw = String(stackInfo.rawException);
+    }
     var stackFrame;
     var frame;
     var code;
@@ -223,23 +229,8 @@ function addBodyTrace(item, options, callback) {
 
 function scrubPayload(item, options, callback) {
   var scrubFields = options.scrubFields;
-  _.scrub(item.data, scrubFields);
+  item.data = _.scrub(item.data, scrubFields);
   callback(null, item);
-}
-
-function userTransform(item, options, callback) {
-  var newItem = _.extend(true, {}, item);
-  try {
-    if (_.isFunction(options.transform)) {
-      options.transform(newItem.data);
-    }
-  } catch (e) {
-    options.transform = null;
-    logger.error('Error while calling custom transform() function. Removing custom transform().', e);
-    callback(null, item);
-    return;
-  }
-  callback(null, newItem);
 }
 
 module.exports = {
@@ -250,6 +241,5 @@ module.exports = {
   addClientInfo: addClientInfo,
   addPluginInfo: addPluginInfo,
   addBody: addBody,
-  scrubPayload: scrubPayload,
-  userTransform: userTransform
+  scrubPayload: scrubPayload
 };

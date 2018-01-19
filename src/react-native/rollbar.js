@@ -1,35 +1,30 @@
+var packageJson = require('../../package.json');
 var Client = require('../rollbar');
 var _ = require('../utility');
 var API = require('../api');
 var logger = require('./logger');
-var globals = require('./globalSetup');
 
 var transport = require('./transport');
-var urllib = require('./url');
+var urllib = require('../browser/url');
 
 var transforms = require('./transforms');
 var sharedTransforms = require('../transforms');
 var predicates = require('./predicates');
-var errorParser = require('./errorParser');
-var Instrumenter = require('./telemetry');
 
 function Rollbar(options, client) {
-  this.options = _.extend(true, defaultOptions, options);
+  if (_.isType(options, 'string')) {
+    var accessToken = options;
+    options = {};
+    options.accessToken = accessToken;
+  }
+  this.options = _.extend(true, {}, Rollbar.defaultOptions, options);
+  // This makes no sense in a long running app
+  delete this.options.maxItems;
+  this.options.environment = this.options.environment || 'unspecified';
   var api = new API(this.options, transport, urllib);
-  this.client = client || new Client(this.options, api, logger, 'browser');
-
+  this.client = client || new Client(this.options, api, logger, 'react-native');
   addTransformsToNotifier(this.client.notifier);
   addPredicatesToQueue(this.client.queue);
-  if (this.options.captureUncaught || this.options.handleUncaughtExceptions) {
-    globals.captureUncaughtExceptions(window, this);
-    globals.wrapGlobals(window, this);
-  }
-  if (this.options.captureUnhandledRejections || this.options.handleUnhandledRejections) {
-    globals.captureUnhandledRejections(window, this);
-  }
-
-  this.instrumenter = new Instrumenter(this.options, this.client.telemeter, this, window, document);
-  this.instrumenter.instrument();
 }
 
 var _instance = null;
@@ -69,7 +64,6 @@ Rollbar.prototype.configure = function(options, payloadData) {
   }
   this.options = _.extend(true, {}, oldOptions, options, payload);
   this.client.configure(options, payloadData);
-  this.instrumenter.configure(options);
   return this;
 };
 Rollbar.configure = function(options, payloadData) {
@@ -151,6 +145,7 @@ Rollbar.warn = function() {
   }
 };
 
+
 Rollbar.prototype.warning = function() {
   var item = this._createItem(arguments);
   var uuid = item.uuid;
@@ -166,6 +161,7 @@ Rollbar.warning = function() {
   }
 };
 
+
 Rollbar.prototype.error = function() {
   var item = this._createItem(arguments);
   var uuid = item.uuid;
@@ -179,6 +175,13 @@ Rollbar.error = function() {
     var maybeCallback = _getFirstFunction(arguments);
     handleUninitialized(maybeCallback);
   }
+};
+Rollbar.prototype._uncaughtError = function() {
+  var item = this._createItem(arguments);
+  item._isUncaught = true;
+  var uuid = item.uuid;
+  this.client.error(item);
+  return {uuid: uuid};
 };
 
 Rollbar.prototype.critical = function() {
@@ -196,120 +199,16 @@ Rollbar.critical = function() {
   }
 };
 
-Rollbar.prototype.handleUncaughtException = function(message, url, lineno, colno, error, context) {
-  var item;
-  var stackInfo = _.makeUnhandledStackInfo(
-    message,
-    url,
-    lineno,
-    colno,
-    error,
-    'onerror',
-    'uncaught exception',
-    errorParser
-  );
-  if (_.isError(error)) {
-    item = this._createItem([message, error, context]);
-    item._unhandledStackInfo = stackInfo;
-  } else if (_.isError(url)) {
-    item = this._createItem([message, url, context]);
-    item._unhandledStackInfo = stackInfo;
-  } else {
-    item = this._createItem([message, context]);
-    item.stackInfo = stackInfo;
-  }
-  item.level = this.options.uncaughtErrorLevel;
-  item._isUncaught = true;
-  this.client.log(item);
+
+Rollbar.prototype.wait = function(callback) {
+  this.client.wait(callback);
 };
-
-Rollbar.prototype.handleUnhandledRejection = function(reason, promise) {
-  var message = 'unhandled rejection was null or undefined!';
-  message = reason ? (reason.message || String(reason)) : message;
-  var context = (reason && reason._rollbarContext) || (promise && promise._rollbarContext);
-
-  var item;
-  if (_.isError(reason)) {
-    item = this._createItem([message, reason, context]);
-  } else {
-    item = this._createItem([message, reason, context]);
-    item.stackInfo = _.makeUnhandledStackInfo(
-      message,
-      '',
-      0,
-      0,
-      null,
-      'unhandledrejection',
-      '',
-      errorParser
-    );
-  }
-  item.level = this.options.uncaughtErrorLevel;
-  item._isUncaught = true;
-  item._originalArgs = item._originalArgs || [];
-  item._originalArgs.push(promise);
-  this.client.log(item);
-};
-
-Rollbar.prototype.wrap = function(f, context, _before) {
-  try {
-    var ctxFn;
-    if(_.isFunction(context)) {
-      ctxFn = context;
-    } else {
-      ctxFn = function() { return context || {}; };
-    }
-
-    if (!_.isFunction(f)) {
-      return f;
-    }
-
-    if (f._isWrap) {
-      return f;
-    }
-
-    if (!f._rollbar_wrapped) {
-      f._rollbar_wrapped = function () {
-        if (_before && _.isFunction(_before)) {
-          _before.apply(this, arguments);
-        }
-        try {
-          return f.apply(this, arguments);
-        } catch(exc) {
-          var e = exc;
-          if (_.isType(e, 'string')) {
-            e = new String(e);
-          }
-          e._rollbarContext = ctxFn() || {};
-          e._rollbarContext._wrappedSource = f.toString();
-
-          window._rollbarWrappedError = e;
-          throw e;
-        }
-      };
-
-      f._rollbar_wrapped._isWrap = true;
-
-      if (f.hasOwnProperty) {
-        for (var prop in f) {
-          if (f.hasOwnProperty(prop)) {
-            f._rollbar_wrapped[prop] = f[prop];
-          }
-        }
-      }
-    }
-
-    return f._rollbar_wrapped;
-  } catch (e) {
-    // Return the original function if the wrap fails.
-    return f;
-  }
-};
-Rollbar.wrap = function(f, context) {
+Rollbar.wait = function(callback) {
   if (_instance) {
-    return _instance.wrap(f, context);
+    return _instance.wait(callback)
   } else {
-    handleUninitialized();
+    var maybeCallback = _getFirstFunction(arguments);
+    handleUninitialized(maybeCallback);
   }
 };
 
@@ -324,47 +223,46 @@ Rollbar.captureEvent = function(metadata, level) {
   }
 };
 
-// The following two methods are used internally and are not meant for public use
-Rollbar.prototype.captureDomContentLoaded = function(e, ts) {
-  if (!ts) {
-    ts = new Date();
+Rollbar.prototype.setPerson = function(personInfo) {
+  this.configure({}, {person: personInfo});
+};
+Rollbar.setPerson = function(personInfo) {
+  if (_instance) {
+    return _instance.setPerson(personInfo);
+  } else {
+    handleUninitialized();
   }
-  return this.client.captureDomContentLoaded(ts);
 };
 
-Rollbar.prototype.captureLoad = function(e, ts) {
-  if (!ts) {
-    ts = new Date();
+Rollbar.prototype.clearPerson = function() {
+  this.configure({}, {person: {}});
+};
+Rollbar.clearPerson = function() {
+  if (_instance) {
+    return _instance.clearPerson();
+  } else {
+    handleUninitialized();
   }
-  return this.client.captureLoad(ts);
 };
 
-/* Internal */
+/** Internal **/
 
 function addTransformsToNotifier(notifier) {
   notifier
+    .addTransform(transforms.baseData)
     .addTransform(transforms.handleItemWithError)
-    .addTransform(transforms.ensureItemHasSomethingToSay)
-    .addTransform(transforms.addBaseInfo)
-    .addTransform(transforms.addRequestInfo(window))
-    .addTransform(transforms.addClientInfo(window))
-    .addTransform(transforms.addPluginInfo(window))
     .addTransform(transforms.addBody)
     .addTransform(sharedTransforms.addMessageWithError)
     .addTransform(sharedTransforms.addTelemetryData)
     .addTransform(sharedTransforms.addConfigToPayload)
     .addTransform(transforms.scrubPayload)
-    .addTransform(sharedTransforms.userTransform(logger))
     .addTransform(sharedTransforms.itemToPayload);
 }
 
 function addPredicatesToQueue(queue) {
   queue
-    .addPredicate(predicates.checkIgnore)
-    .addPredicate(predicates.userCheckIgnore)
-    .addPredicate(predicates.urlIsNotBlacklisted)
-    .addPredicate(predicates.urlIsWhitelisted)
-    .addPredicate(predicates.messageIsIgnored);
+    .addPredicate(predicates.checkLevel)
+    .addPredicate(predicates.userCheckIgnore);
 }
 
 Rollbar.prototype._createItem = function(args) {
@@ -380,20 +278,18 @@ function _getFirstFunction(args) {
   return undefined;
 }
 
-/* global __NOTIFIER_VERSION__:false */
-/* global __DEFAULT_BROWSER_SCRUB_FIELDS__:false */
-/* global __DEFAULT_LOG_LEVEL__:false */
-/* global __DEFAULT_REPORT_LEVEL__:false */
-/* global __DEFAULT_UNCAUGHT_ERROR_LEVEL:false */
-/* global __DEFAULT_ENDPOINT__:false */
-
-var defaultOptions = {
-  version: __NOTIFIER_VERSION__,
-  scrubFields: __DEFAULT_BROWSER_SCRUB_FIELDS__,
-  logLevel: __DEFAULT_LOG_LEVEL__,
-  reportLevel: __DEFAULT_REPORT_LEVEL__,
-  uncaughtErrorLevel: __DEFAULT_UNCAUGHT_ERROR_LEVEL,
-  endpoint: __DEFAULT_ENDPOINT__,
+Rollbar.defaultOptions = {
+  environment: process.env.NODE_ENV || 'development',
+  platform: 'client',
+  framework: 'react-native',
+  showReportedMessageTraces: false,
+  notifier: {
+    name: 'rollbar-react-native',
+    version: packageJson.version
+  },
+  scrubHeaders: packageJson.defaults.server.scrubHeaders,
+  scrubFields: packageJson.defaults.server.scrubFields,
+  reportLevel: packageJson.defaults.reportLevel,
   verbose: false,
   enabled: true,
   sendConfig: false

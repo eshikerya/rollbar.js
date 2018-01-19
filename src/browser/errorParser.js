@@ -33,9 +33,20 @@ function Frame(stackFrame) {
 function Stack(exception) {
   function getStack() {
     var parserStack = [];
+    var exc;
+
+    if (!exception.stack) {
+      try {
+        throw exception;
+      } catch (e) {
+        exc = e;
+      }
+    } else {
+      exc = exception;
+    }
 
     try {
-      parserStack = ErrorStackParser.parse(exception);
+      parserStack = ErrorStackParser.parse(exc);
     } catch(e) {
       parserStack = [];
     }
@@ -52,7 +63,9 @@ function Stack(exception) {
   return {
     stack: getStack(),
     message: exception.message,
-    name: exception.name
+    name: exception.name,
+    rawStack: exception.stack,
+    rawException: exception
   };
 }
 
@@ -63,7 +76,7 @@ function parse(e) {
 
 
 function guessErrorClass(errMsg) {
-  if (!errMsg) {
+  if (!errMsg || !errMsg.match) {
     return ['Unknown error. There was no error message to display.', ''];
   }
   var errClassMatch = errMsg.match(ERR_CLASS_REGEXP);

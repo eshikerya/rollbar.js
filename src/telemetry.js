@@ -10,7 +10,8 @@ function Telemeter(options) {
 }
 
 Telemeter.prototype.configure = function(options) {
-  this.options = _.extend(true, {}, options);
+  var oldOptions = this.options;
+  this.options = _.extend(true, {}, oldOptions, options);
   var maxTelemetryEvents = this.options.maxTelemetryEvents || MAX_EVENTS;
   var newMaxEvents = Math.max(0, Math.min(maxTelemetryEvents, MAX_EVENTS));
   var deleteCount = 0;
@@ -36,6 +37,15 @@ Telemeter.prototype.capture = function(type, metadata, level, rollbarUUID, times
   if (rollbarUUID) {
     e.uuid = rollbarUUID;
   }
+
+  try {
+    if (_.isFunction(this.options.filterTelemetry) && this.options.filterTelemetry(e)) {
+      return false;
+    }
+  } catch (e) {
+    this.options.filterTelemetry = null;
+  }
+
   this.push(e);
   return e;
 };

@@ -417,7 +417,9 @@ function addTransformsToNotifier(notifier) {
     .addTransform(sharedTransforms.addTelemetryData)
     .addTransform(transforms.addRequestData)
     .addTransform(transforms.addLambdaData)
+    .addTransform(sharedTransforms.addConfigToPayload)
     .addTransform(transforms.scrubPayload)
+    .addTransform(sharedTransforms.userTransform(logger))
     .addTransform(sharedTransforms.itemToPayload);
 }
 
@@ -516,7 +518,8 @@ Rollbar.defaultOptions = {
   addRequestData: null,
   reportLevel: packageJson.defaults.reportLevel,
   verbose: false,
-  enabled: true
+  enabled: true,
+  sendConfig: false
 };
 
 module.exports = Rollbar;
